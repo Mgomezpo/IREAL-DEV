@@ -98,19 +98,29 @@ IREAL is a creative workspace that orchestrates AI to help content creators move
 - Browser: Evergreen browsers; a11y and performance on mid-range devices.
 - Performance: p95 < 300ms standard API; AI endpoints stream responses; LCP < 2.5s key pages.
 
-### Technology Preferences (current code)
+### Technology Preferences (Updated)
 
-- Frontend: Next.js 14 App Router, React 19, TypeScript, Tailwind v4, Radix UI, shadcn-like components.
-- Backend: Next API routes; Supabase SSR for auth/session.
-- Database: Supabase (Postgres + Auth + Storage assumed via `lib/supabase/*`).
-- Infra: Vercel (assumed; `@vercel/analytics` present).
+- Frontend: Keep Next.js 14 + React 19, Tailwind, shadcn-like components.
+- Backend: Move away from Next API routes.
+  - Option A: Python FastAPI + SQLAlchemy + Celery (recommended for AI workloads).
+  - Option B: Node/NestJS + Prisma + BullMQ (if staying TypeScript).
+- Database: Dedicated Postgres instance (can still be Supabase-managed).
+- Caching/Queues: Redis.
+- Observability: OpenTelemetry stack.
+- Infra: Docker, docker-compose, Vercel (UI), Fly.io/Render/AWS (backend).
 
-### Architecture Considerations
+### Architecture Considerations (Updated)
 
-- Repository: Monorepo single app (`ireal_demo`) with `app/*` feature structure.
-- Services: API routes per domain (`app/api/ai/*`, `ideas/*`, `plans/*`, `pieces/*`).
-- Integrations: Google Generative AI via `@google/generative-ai` and raw REST.
-- Security/Compliance: Move secrets to env; remove hardcoded API keys; add input validation, rate limiting, and audit logging.
+- Current: Single monorepo Next.js app using Supabase SSR and API routes.
+- Target: Split architecture.
+  - Keep Next.js strictly for UI (frontend + edge rendering).
+  - Move all backend logic (AI endpoints, plans, ideas, calendar, auth/session) into a dedicated service (Python FastAPI or Node/Nest).
+  - Introduce a Postgres instance (via Supabase or managed DB) shared via secure API.
+  - Add Redis for caching, queues, and rate limits.
+  - Adopt OpenAPI-first contract between frontend and backend.
+  - Observability via OpenTelemetry (logs, metrics, traces).
+  - CI/CD pipelines for both front and backend; Docker-based deploys.
+- Migration plan: Incremental service extraction from Next → API gateway routing → deprecate old Next API routes after parity.
 
 ## What’s Outdated or Needs Rethinking
 
@@ -151,6 +161,17 @@ IREAL is a creative workspace that orchestrates AI to help content creators move
 - Spanish-first UX; creators prioritize simplicity over configurability.
 - Supabase roles and storage will satisfy initial needs.
 - Vercel deployment target.
+
+### Migration Intent
+
+- Objective: decouple backend logic from Next.js to achieve independent scaling, reliability, and AI task isolation.
+- Rationale: Next API routes limit long-running or concurrent AI tasks; separating ensures stability and lower coupling.
+- Milestones:
+  1. Backend service skeleton (FastAPI/Nest).
+  2. Auth & data model migration.
+  3. AI endpoints moved to backend.
+  4. Observability baseline (logging + metrics).
+  5. Deprecate old API routes in Next.
 
 ## Risks & Open Questions
 

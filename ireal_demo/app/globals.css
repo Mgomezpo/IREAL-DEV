@@ -1,0 +1,146 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-display: var(--font-playfair);
+  --font-sans: var(--font-inter);
+
+  /* IREAL Design Tokens */
+  --surface: #fdf6eb;
+  --ink: #000000;
+
+  /* Acento granate suavizado */
+  --accent-700: #6e0b14;
+  --accent-600: #8a0f1c;
+  --accent-500: #9f1522;
+  --accent-400: #b73a45;
+  --accent-300: #d66770;
+
+  /* Estados */
+  --success: #1b8a4b;
+  --warning: #b26b00;
+  --danger: #8a0f1c;
+  --info: #0e4aa6;
+
+  /* optional: --font-sans, --font-serif, --font-mono if they are applied in the layout.tsx */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* Selección personalizada */
+::selection {
+  background: color-mix(in oklab, var(--accent-300) 12%, transparent);
+  color: var(--ink);
+}
+
+/* Animación página de cuaderno */
+@keyframes notebook-enter {
+  from {
+    transform: rotateY(6deg) translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: rotateY(0deg) translateX(0px);
+    opacity: 1;
+  }
+}
+
+@keyframes notebook-exit {
+  from {
+    transform: rotateY(0deg) translateX(0px);
+    opacity: 1;
+  }
+  to {
+    transform: rotateY(-6deg) translateX(-24px);
+    opacity: 0;
+  }
+}
+
+.notebook-enter {
+  animation: notebook-enter 700ms cubic-bezier(0.2, 0.7, 0.1, 1) forwards;
+}
+
+.notebook-exit {
+  animation: notebook-exit 700ms cubic-bezier(0.2, 0.7, 0.1, 1) forwards;
+}
+
+/* Sparkle animation */
+@keyframes sparkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.sparkle-animation {
+  animation: sparkle 650ms ease-out;
+}
+
+/* Respeta prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .notebook-enter,
+  .notebook-exit {
+    animation: none;
+    transition: opacity 300ms ease;
+  }
+
+  .sparkle-animation {
+    animation: none;
+  }
+}
+
+/* Grain texture para landing */
+.grain-texture {
+  background-image: radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.02) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.01) 0%, transparent 50%);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

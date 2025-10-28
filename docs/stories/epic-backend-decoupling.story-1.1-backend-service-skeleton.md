@@ -16,11 +16,19 @@ so that domain logic is centralized, testable, and ready for incremental migrati
 5. Metrics endpoint `/metrics` (Prometheus format or minimal JSON) exposed
 6. OpenAPI scaffold generated and saved to `docs/api/openapi.yaml`
 7. CI pipeline builds container, runs lint and typecheck
+8. Module paths follow `src/{auth,ideas,plans,ai,pieces}` with top-level `common/` for shared DTOs/utilities
+9. Env schema validates (no defaults): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `AI_PROVIDER`, `AI_API_KEY`
+10. OpenAPI is also served at `/v1/openapi.json` and exported during CI as artifact alongside `docs/api/openapi.yaml`
+11. `/metrics` uses Prometheus exposition format with basic counters/histograms
 
 ## Integration Verification
 IV1. Next.js app unaffected: `npm run dev` and `next build` succeed
 IV2. Health and metrics endpoints reachable locally and return expected schema
 IV3. No secrets logged; env validation fails fast with clear errors
+
+## Additional Details
+- Folder structure clarity prevents ambiguity during scaffolding and future story work.
+- Explicit env var names ensure consistency with current Next/Supabase setup while moving secrets server-side.
 
 ## Dependencies
 - PRD: docs/prd.md
@@ -30,4 +38,3 @@ IV3. No secrets logged; env validation fails fast with clear errors
 - No domain migration yet; only scaffolding and foundations
 
 ---
-

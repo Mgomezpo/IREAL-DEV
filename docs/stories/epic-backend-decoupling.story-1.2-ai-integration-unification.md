@@ -14,6 +14,9 @@ so that AI features are secure, reliable, and easier to maintain.
 3. Standardize response envelope: `{id,type,content,metadata:{tokens,model,latencyMs},timestamp}`
 4. Support streaming for long responses where applicable
 5. Unit tests for error handling (provider failures, timeouts, invalid payloads)
+6. All AI endpoints return `{ data|null, error|null, meta }` envelope at the transport level
+7. Streaming implemented using Server-Sent Events (SSE) or chunked JSON, covered by tests
+8. Rate-limit hooks and per-request timeouts applied within the AI client abstraction
 
 ## Integration Verification
 IV1. All AI endpoints return the standardized schema
@@ -27,4 +30,3 @@ IV3. Latency and error metrics captured per AI operation
 - Provide feature flag or config toggle to switch AI providers if needed
 
 ---
-

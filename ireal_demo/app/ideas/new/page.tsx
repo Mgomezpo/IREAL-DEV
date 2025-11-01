@@ -153,19 +153,22 @@ export default function NewIdea() {
       })
 
       if (response.status === 204) {
-        // No nudge available, that's ok
         return
       }
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.question) {
-          setCurrentNudge(data.question)
-          setNudgeCount((prev) => prev + 1)
-          setLastNudgeTime(now)
-          setSeenParagraphHashes((prev) => new Set(prev).add(paragraphHash))
-          console.log("[v0] Nudge received:", data.question)
-        }
+      if (!response.ok) {
+        console.error("[v0] Nudge error status:", response.status)
+        return
+      }
+
+      const payload = await response.json()
+      if (payload?.data?.question) {
+        const question = payload.data.question as string
+        setCurrentNudge(question)
+        setNudgeCount((prev) => prev + 1)
+        setLastNudgeTime(now)
+        setSeenParagraphHashes((prev) => new Set(prev).add(paragraphHash))
+        console.log("[v0] Nudge received:", question)
       }
     } catch (error: unknown) {
       if ((error as Error).name === "AbortError") {

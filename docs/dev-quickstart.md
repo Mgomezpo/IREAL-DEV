@@ -14,7 +14,10 @@
 
 ## Environment Setup
 1. Create `.env.local` in `ireal_demo/` and `.env` in `ireal-service/` (Story 1.1 adds templates).
-2. Populate at minimum: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `AI_PROVIDER`, `AI_API_KEY`, plus service-specific vars (`SERVICE_PORT`, rate-limit defaults).
+2. Populate at minimum:
+   - Shared: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - Service: `AI_PROVIDER`, `AI_API_KEY`, optional `SERVICE_PORT`, rate-limit defaults
+   - Next.js server: `IREAL_SERVICE_URL` (e.g., `http://localhost:3333`) so API routes can proxy to the NestJS service
 
 ## Install Dependencies
 - From repo root run `pnpm install --filter ireal_demo...`

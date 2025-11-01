@@ -1,9 +1,35 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { Registry, collectDefaultMetrics } from 'prom-client';
+import {
+  Registry,
+  collectDefaultMetrics,
+  Histogram,
+  Counter,
+} from 'prom-client';
 
 @Injectable()
 export class MetricsService implements OnModuleInit {
   private readonly registry = new Registry();
+  private readonly aiLatencyHistogram = new Histogram({
+    name: 'ireal_service_ai_latency_ms',
+    help: 'Latency in milliseconds for AI operations',
+    labelNames: ['operation', 'status'],
+    buckets: [100, 250, 500, 750, 1000, 2000, 5000, 10000],
+    registers: [this.registry],
+  });
+
+  private readonly aiTokensCounter = new Counter({
+    name: 'ireal_service_ai_tokens_total',
+    help: 'Total tokens consumed by AI operations',
+    labelNames: ['operation', 'model'],
+    registers: [this.registry],
+  });
+
+  private readonly aiErrorCounter = new Counter({
+    name: 'ireal_service_ai_errors_total',
+    help: 'Total AI operation failures',
+    labelNames: ['operation', 'reason'],
+    registers: [this.registry],
+  });
 
   onModuleInit() {
     collectDefaultMetrics({
@@ -14,5 +40,21 @@ export class MetricsService implements OnModuleInit {
 
   async getMetrics(): Promise<string> {
     return this.registry.metrics();
+  }
+
+  observeAiLatency(
+    operation: string,
+    status: 'success' | 'error',
+    latencyMs: number,
+  ) {
+    this.aiLatencyHistogram.observe({ operation, status }, latencyMs);
+  }
+
+  incrementAiTokens(operation: string, model: string, tokens: number) {
+    this.aiTokensCounter.inc({ operation, model }, tokens);
+  }
+
+  incrementAiErrors(operation: string, reason: string) {
+    this.aiErrorCounter.inc({ operation, reason });
   }
 }

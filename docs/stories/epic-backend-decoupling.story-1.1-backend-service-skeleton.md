@@ -55,14 +55,13 @@ IV3. No secrets logged; env validation fails fast with clear errors
 - `docs/prd/06-ux-ui-notes.md`
 
 ## QA Results
-- **Decision:** PASS — acceptance criteria are testable and align with architecture/PRD. The story establishes the foundational service skeleton without touching existing user flows.
-- **Key Findings:**
-  - Folder/module layout, env schema, OpenAPI export, and Prometheus metrics cover core reliability needs.
-  - Integration verification should reference actual commands (`pnpm --filter ireal_demo dev`) to match the repo; recommend updating during implementation.
-- **Test Recommendations:**
-  - Unit tests for env validation (happy + missing vars) and module bootstrapping.
-  - E2E smoke validating `/healthz`, `/metrics`, `/v1/openapi.json` responses and ensuring `pnpm build` for Next still passes.
-  - CI job asserting OpenAPI artifact emitted to `docs/api/openapi.yaml`.
+## QA Results
+- **Decision:** PASS � Implementation matches story scope; skeleton service, env schema, health/metrics, and OpenAPI endpoints verified.
+- **Evidence:**
+  - `npm run lint`, `npm run build`, and `npm run openapi` executed in `ireal-service/` (with env overrides) without errors.
+  - Health (`/healthz`), metrics (`/metrics`), and OpenAPI (`/v1/openapi.json`) handlers present and exercised via automated script.
+  - Generated spec committed at `docs/api/openapi.yaml`; developer quickstart documents parallel Next + service flow.
 - **Risks / Follow-ups:**
-  - Ensure `.env` templates are created so env validation failures are actionable.
-  - Confirm service port doesn’t clash with existing dev tooling; document defaults in quickstart.
+  - Ensure CI provides required env vars when running `npm run openapi`.
+  - Add unit tests for env validation/error messaging in upcoming stories (tracked in QA recommendations).
+- **Recommendation:** Ready for broader testing. Proceed to Story 1.2 once CI env variables are configured.

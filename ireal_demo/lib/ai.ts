@@ -1,3 +1,9 @@
+export interface AiEnvelope<T> {
+  data: T | null
+  error: { code: string; message: string } | null
+  meta: Record<string, unknown>
+}
+
 export interface AIGenerationRequest {
   prompt: string
   type?: "general" | "calendar" | "idea" | "plan"
@@ -9,44 +15,58 @@ export interface AIGenerationResponse {
   timestamp: string
 }
 
+async function handleAiResponse<T>(response: Response): Promise<T> {
+  const envelope = (await response.json()) as AiEnvelope<T>
+
+  if (!response.ok || envelope.error) {
+    throw new Error(envelope.error?.message ?? "AI request failed")
+  }
+
+  if (!envelope.data) {
+    throw new Error("AI response missing data")
+  }
+
+  return envelope.data
+}
+
 export async function generateWithAI({ prompt, type = "general" }: AIGenerationRequest): Promise<AIGenerationResponse> {
-  try {
-    const response = await fetch("/api/ai/generate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ prompt, type }),
-    })
+  const response = await fetch("/api/ai/generate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ prompt, type }),
+  })
 
-    if (!response.ok) {
-      throw new Error(`AI generation failed: ${response.status}`)
-    }
+  const data = await handleAiResponse<{
+    content: string
+    type: string
+    timestamp: string
+  }>(response)
 
-    return await response.json()
-  } catch (error) {
-    console.error("[v0] AI generation error:", error)
-    throw error
+  return {
+    content: data.content,
+    type: data.type,
+    timestamp: data.timestamp,
   }
 }
 
-// Specific AI helpers for IREAL features
 export const aiHelpers = {
   generateCalendar: (preferences: string) =>
     generateWithAI({
-      prompt: `Genera un calendario de contenido para las pr贸ximas 2 semanas basado en estas preferencias: ${preferences}. Incluye tipos de contenido variados, horarios 贸ptimos y temas relevantes.`,
+      prompt: `Genera un calendario de contenido para las pr髕imas 2 semanas basado en estas preferencias: ${preferences}. Incluye tipos de contenido variados, horarios 髉timos y temas relevantes.`,
       type: "calendar",
     }),
 
   generateIdea: (topic: string) =>
     generateWithAI({
-      prompt: `Genera 3 ideas creativas de contenido sobre: ${topic}. Incluye t铆tulo, descripci贸n breve y tipo de contenido recomendado.`,
+      prompt: `Genera 3 ideas creativas de contenido sobre: ${topic}. Incluye t韙ulo, descripci髇 breve y tipo de contenido recomendado.`,
       type: "idea",
     }),
 
   generatePlan: (idea: string) =>
     generateWithAI({
-      prompt: `Crea un plan detallado de contenido basado en esta idea: ${idea}. Incluye estructura, puntos clave, call-to-action y estrategia de distribuci贸n.`,
+      prompt: `Crea un plan detallado de contenido basado en esta idea: ${idea}. Incluye estructura, puntos clave, call-to-action y estrategia de distribuci髇.`,
       type: "plan",
     }),
 }

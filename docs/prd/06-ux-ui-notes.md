@@ -4,4 +4,5 @@
 - Pages: `/` landing, `/auth`, `/dashboard`, `/ideas`, `/planes/[id]`, `/calendario`, `/biblioteca`
 - Interaction patterns: short plan-chat prompts; focus-visible rings; accessible labels; responsive on common breakpoints
 - Empty states and loading: skeletons for ideas/plans; gentle transitions; clear error toasts
+- Streaming AI (calendar): show in-progress state (spinner/progress banner), append entries as they stream, allow cancel, surface final toast on completion
 

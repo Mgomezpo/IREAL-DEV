@@ -1,0 +1,42 @@
+# Dev Quickstart: IREAL Frontend + Service
+
+## Prerequisites
+- Node.js 20.x (aligns with Next.js 14 + NestJS)
+- pnpm 9.x (frontend uses pnpm per lockfile)
+- npm 10.x for NestJS service scripts (or switch to pnpm later)
+- Supabase credentials (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
+- AI provider key (`AI_PROVIDER`, `AI_API_KEY`) stored in service `.env`
+
+## Repo Layout
+- `ireal_demo/` – existing Next.js app
+- `ireal-service/` – NestJS backend (Story 1.1)
+- `docs/` – PRD, architecture, OpenAPI, stories, brief
+
+## Environment Setup
+1. Create `.env.local` in `ireal_demo/` and `.env` in `ireal-service/` (Story 1.1 adds templates).
+2. Populate at minimum: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `AI_PROVIDER`, `AI_API_KEY`, plus service-specific vars (`SERVICE_PORT`, rate-limit defaults).
+
+## Install Dependencies
+- From repo root run `pnpm install --filter ireal_demo...`
+- Then run `npm install --prefix ireal-service`
+
+## Run Dev Servers
+- Terminal 1: `npm run start:dev --prefix ireal-service`
+- Terminal 2: `pnpm --filter ireal_demo dev`
+- During Stories 1.1–1.4 hit service endpoints directly (`http://localhost:3333/v1/...`).
+- Story 1.5 introduces a feature flag to proxy Next `/api/*` to the service.
+
+## OpenAPI & Docs
+- Refresh spec: `npm run openapi --prefix ireal-service` (Story 1.1 deliverable).
+- Runtime contract lives at `/v1/openapi.json`; committed spec at `docs/api/openapi.yaml`.
+
+## Testing & Linting
+- Service: `npm run lint --prefix ireal-service`, `npm run test --prefix ireal-service`
+- Frontend: `pnpm --filter ireal_demo lint`; add tests per story requirements.
+
+## Troubleshooting
+- Health check: `GET http://localhost:3333/healthz`
+- Metrics: `GET http://localhost:3333/metrics`
+- SSE (AI calendar): use EventSource/fetch streaming and confirm updates appear in console.
+
+Maintainer: Product Owner. Update after Story 1.1 implementation finalizes.

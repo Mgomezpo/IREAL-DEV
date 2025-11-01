@@ -1,0 +1,11 @@
+status: PASS
+story: docs/stories/epic-backend-decoupling.story-1.1-backend-service-skeleton.md
+summary: |
+  Story is ready to implement. ACs cover service skeleton, env validation, OpenAPI export,
+  and metrics. Only minor note: reference pnpm command when verifying Next build.
+risks:
+  - name: Dev command mismatch
+    mitigation: Update integration verification to use pnpm --filter ireal_demo dev during implementation.
+recommendations:
+  - Provide .env templates when scaffolding service to help env validation tests.
+  - Add CI step asserting OpenAPI artifact is generated.

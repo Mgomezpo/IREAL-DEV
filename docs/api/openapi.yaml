@@ -1,0 +1,29 @@
+openapi: 3.0.0
+paths:
+  /healthz:
+    get:
+      operationId: HealthController_getHealth
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      tags:
+        - Health
+  /metrics:
+    get:
+      operationId: MetricsController_getMetrics
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      tags:
+        - Metrics
+info:
+  title: IREAL Service API
+  description: Versioned API for the decoupled IREAL backend service.
+  version: 0.0.1
+  contact: {}
+tags: []
+servers: []
+components:
+  schemas: {}

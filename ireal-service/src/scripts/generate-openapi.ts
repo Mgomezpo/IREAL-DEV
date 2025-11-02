@@ -32,6 +32,19 @@ async function generate() {
 }
 
 generate().catch((error) => {
-  console.error('Failed to generate OpenAPI spec', error);
+  const message =
+    error instanceof Error
+      ? `${error.message}\n${error.stack ?? ''}`
+      : String(error);
+  console.error('Failed to generate OpenAPI spec', message);
+  try {
+    writeFileSync(
+      join(__dirname, '..', '..', '..', 'docs', 'api', 'openapi-error.log'),
+      message,
+      'utf-8',
+    );
+  } catch (writeError) {
+    console.error('Unable to write openapi-error.log', writeError);
+  }
   process.exitCode = 1;
 });

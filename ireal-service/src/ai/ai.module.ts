@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { MetricsModule } from '../metrics/metrics.module';
+import { RateLimitModule } from '../common/rate-limit/rate-limit.module';
+import { RateLimitGuard } from '../common/rate-limit/rate-limit.guard';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, MetricsModule, RateLimitModule],
   controllers: [AiController],
-  providers: [AiService],
+  providers: [AiService, RateLimitGuard],
   exports: [AiService],
 })
 export class AiModule {}

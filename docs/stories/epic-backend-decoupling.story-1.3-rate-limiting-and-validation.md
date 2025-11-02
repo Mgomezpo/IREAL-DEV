@@ -1,6 +1,6 @@
 # Story 1.3 – Rate Limiting and Validation
 
-Status: Draft
+Status: In Progress
 Epic: docs/epics/epic-backend-decoupling.md
 
 ## Story
@@ -24,3 +24,23 @@ IV3. Error responses match envelope; docs updated
 - Story 1.1 (skeleton) and 1.2 (AI client) completed
 
 ---
+
+## Dev Agent Record
+### Summary
+- Added configurable per-user and per-IP throttling via shared `RateLimitService`, guard, and decorator applied to all AI endpoints.
+- Registered global validation pipe and exception filter to return consistent `{ data, error, meta }` envelopes for 400/429/5xx scenarios.
+- Documented new rate-limit environment variables and propagated `x-user-id` from the plan-chat proxy to support user-scoped limits.
+### Tests
+- `npm run lint` (ireal-service)
+- `npm run test` (ireal-service)
+- `npm run build` (ireal-service)
+### File List
+- `ireal-service/package.json`
+- `ireal-service/src/main.ts`
+- `ireal-service/src/common/config/env.validation.ts`
+- `ireal-service/src/common/filters/api-exception.filter.ts`
+- `ireal-service/src/common/pipes/**`
+- `ireal-service/src/common/rate-limit/**`
+- `ireal-service/src/ai/ai.controller.ts`
+- `ireal_demo/app/api/ai/plan-chat/route.ts`
+- `docs/dev-quickstart.md`

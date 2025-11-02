@@ -30,6 +30,7 @@ export async function POST(request: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-user-id": user.id,
       },
       body: JSON.stringify(body),
     })

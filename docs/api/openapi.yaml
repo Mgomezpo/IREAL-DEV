@@ -1,14 +1,76 @@
 openapi: 3.0.0
 paths:
-  /healthz:
-    get:
-      operationId: HealthController_getHealth
+  /v1/ai/generate:
+    post:
+      operationId: AiController_generate
       parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateAiDto"
       responses:
-        "200":
+        "201":
           description: ""
-      tags:
-        - Health
+      tags: &a1
+        - Ai
+  /v1/ai/plan-chat:
+    post:
+      operationId: AiController_planChat
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanChatDto"
+      responses:
+        "201":
+          description: ""
+      tags: *a1
+  /v1/ai/nudge:
+    post:
+      operationId: AiController_nudge
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NudgeDto"
+      responses:
+        "201":
+          description: ""
+      tags: *a1
+  /v1/ai/plans:
+    post:
+      operationId: AiController_planAssist
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanAssistDto"
+      responses:
+        "201":
+          description: ""
+      tags: *a1
+  /v1/ai/calendar:
+    post:
+      operationId: AiController_calendar
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarRequestDto"
+      responses:
+        "201":
+          description: ""
+      tags: *a1
   /metrics:
     get:
       operationId: MetricsController_getMetrics
@@ -18,6 +80,15 @@ paths:
           description: ""
       tags:
         - Metrics
+  /healthz:
+    get:
+      operationId: HealthController_getHealth
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      tags:
+        - Health
 info:
   title: IREAL Service API
   description: Versioned API for the decoupled IREAL backend service.
@@ -26,4 +97,19 @@ info:
 tags: []
 servers: []
 components:
-  schemas: {}
+  schemas:
+    GenerateAiDto:
+      type: object
+      properties: {}
+    PlanChatDto:
+      type: object
+      properties: {}
+    NudgeDto:
+      type: object
+      properties: {}
+    PlanAssistDto:
+      type: object
+      properties: {}
+    CalendarRequestDto:
+      type: object
+      properties: {}

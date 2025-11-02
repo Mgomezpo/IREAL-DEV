@@ -1,6 +1,8 @@
-import { Body, Controller, Post, Res } from '@nestjs/common';
+import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiEnvelope } from '../common/envelope';
+import { RateLimit } from '../common/rate-limit/rate-limit.decorator';
+import { RateLimitGuard } from '../common/rate-limit/rate-limit.guard';
 import {
   AiGenerationData,
   AiNudgeData,
@@ -15,25 +17,30 @@ import { CalendarRequestDto } from './dto/calendar.dto';
 import { PlanAssistDto } from './dto/plan-assist.dto';
 
 @Controller('v1/ai')
+@UseGuards(RateLimitGuard)
 export class AiController {
   constructor(private readonly aiService: AiService) {}
 
   @Post('generate')
+  @RateLimit('ai')
   generate(@Body() dto: GenerateAiDto): Promise<ApiEnvelope<AiGenerationData>> {
     return this.aiService.generate(dto);
   }
 
   @Post('plan-chat')
+  @RateLimit('ai')
   planChat(@Body() dto: PlanChatDto): Promise<ApiEnvelope<AiPlanChatData>> {
     return this.aiService.planChat(dto);
   }
 
   @Post('nudge')
+  @RateLimit('ai')
   nudge(@Body() dto: NudgeDto): Promise<ApiEnvelope<AiNudgeData>> {
     return this.aiService.nudge(dto);
   }
 
   @Post('plans')
+  @RateLimit('ai')
   planAssist(
     @Body() dto: PlanAssistDto,
   ): Promise<ApiEnvelope<AiPlanAssistData>> {
@@ -41,6 +48,7 @@ export class AiController {
   }
 
   @Post('calendar')
+  @RateLimit('ai')
   calendar(
     @Body() dto: CalendarRequestDto,
     @Res() res: Response,

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export const GENERATE_AI_TYPES = [

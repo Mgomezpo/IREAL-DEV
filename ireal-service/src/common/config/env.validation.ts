@@ -13,6 +13,26 @@ export const envSchema = z.object({
     .min(1, 'NEXT_PUBLIC_SUPABASE_ANON_KEY is required'),
   AI_PROVIDER: z.string().min(1, 'AI_PROVIDER is required'),
   AI_API_KEY: z.string().min(1, 'AI_API_KEY is required'),
+  RATE_LIMIT_WINDOW_SECONDS: z.coerce
+    .number()
+    .min(1, 'RATE_LIMIT_WINDOW_SECONDS must be at least 1')
+    .default(60),
+  AI_RATE_LIMIT_PER_USER: z.coerce
+    .number()
+    .min(1, 'AI_RATE_LIMIT_PER_USER must be at least 1')
+    .default(5),
+  AI_RATE_LIMIT_PER_IP: z.coerce
+    .number()
+    .min(1, 'AI_RATE_LIMIT_PER_IP must be at least 1')
+    .default(30),
+  WRITE_RATE_LIMIT_PER_USER: z.coerce
+    .number()
+    .min(1, 'WRITE_RATE_LIMIT_PER_USER must be at least 1')
+    .default(60),
+  WRITE_RATE_LIMIT_PER_IP: z.coerce
+    .number()
+    .min(1, 'WRITE_RATE_LIMIT_PER_IP must be at least 1')
+    .default(120),
 });
 
 export type Env = z.infer<typeof envSchema>;

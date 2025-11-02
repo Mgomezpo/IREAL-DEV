@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class NudgeDto {

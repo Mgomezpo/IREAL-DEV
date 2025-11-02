@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { callService } from "@/lib/service-client"
 
 const SERVICE_PATH = "/v1/ai/calendar"
-const decoder = new TextDecoder()
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,29 +25,42 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const reader = response.body.getReader()
-    let buffer = ""
-    while (true) {
-      const { value, done } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-    }
+    const stream = new ReadableStream({
+      start(controller) {
+        const reader = response.body!.getReader()
+        const forward = (): void => {
+          reader
+            .read()
+            .then(({ value, done }) => {
+              if (done) {
+                controller.close()
+                return
+              }
+              if (value) {
+                controller.enqueue(value)
+              }
+              forward()
+            })
+            .catch((error) => {
+              controller.error(error)
+            })
+        }
+        forward()
+      },
+      cancel(reason) {
+        response.body?.cancel(reason).catch(() => {})
+      },
+    })
 
-    const match = buffer.match(/data: (.*)\n\n/)
-    if (!match) {
-      return NextResponse.json(
-        {
-          data: null,
-          error: { code: "AI_CALENDAR_PARSE_ERROR", message: "Unable to parse calendar stream" },
-          meta: { requestId: randomUUID() },
-        },
-        { status: 502 },
-      )
-    }
+    const headers = new Headers(response.headers)
+    headers.set("Content-Type", "text/event-stream")
+    headers.set("Cache-Control", "no-cache")
+    headers.set("Connection", "keep-alive")
 
-    const payload = JSON.parse(match[1])
-    const status = payload.error ? 500 : response.status
-    return NextResponse.json(payload, { status })
+    return new Response(stream, {
+      status: response.status,
+      headers,
+    })
   } catch (error) {
     console.error("[v0] Calendar generation error:", error)
     return NextResponse.json(

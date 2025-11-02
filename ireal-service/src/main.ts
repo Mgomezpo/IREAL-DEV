@@ -4,6 +4,8 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { json, Request, Response, urlencoded } from 'express';
 import { AppModule } from './app.module';
+import { ApiExceptionFilter } from './common/filters/api-exception.filter';
+import { createValidationPipe } from './common/pipes/api-validation.pipe';
 import { getAppVersion } from './common/version.util';
 
 async function bootstrap() {
@@ -13,6 +15,8 @@ async function bootstrap() {
 
   app.use(json({ limit: '1mb' }));
   app.use(urlencoded({ extended: true }));
+  app.useGlobalPipes(createValidationPipe());
+  app.useGlobalFilters(new ApiExceptionFilter());
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3333);

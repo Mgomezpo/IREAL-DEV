@@ -1,6 +1,6 @@
-# Story 1.2 – AI Integration Unification
+# Story 1.2 - AI Integration Unification
 
-Status: Draft
+Status: Ready for Review
 Epic: docs/epics/epic-backend-decoupling.md
 
 ## Story
@@ -30,3 +30,26 @@ IV3. Latency and error metrics captured per AI operation
 - Provide feature flag or config toggle to switch AI providers if needed
 
 ---
+## Dev Agent Record
+### Summary
+- Implemented unified `AiService` with retry, timeout, rate limiting, SSE streaming, and envelope normalization across controllers.
+- Replaced Next.js API routes with proxies that call the service client, ensuring secrets stay in the backend and streaming works end to end, including passthrough SSE for calendars.
+- Added DTO validation, shared envelope utilities, and Jest coverage for successful calls, provider failures, rate limiting, timeout handling, and invalid payload rejection.
+### Tests
+- `npm run lint` (ireal-service)
+- `npm run build` (ireal-service)
+- `npm run openapi` (ireal-service; temporary env vars `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `AI_PROVIDER`, `AI_API_KEY`)
+- `npm run test` (ireal-service)
+### File List
+- `ireal-service/package.json`
+- `ireal-service/package-lock.json`
+- `ireal-service/src/ai/**`
+- `ireal-service/src/common/**`
+- `ireal-service/src/metrics/**`
+- `ireal-service/src/scripts/generate-openapi.ts`
+- `ireal_demo/app/api/ai/**`
+- `ireal_demo/lib/ai.ts`
+- `ireal_demo/lib/service-client.ts`
+- `docs/dev-quickstart.md`
+- `docs/api/openapi.yaml`
+

@@ -86,30 +86,23 @@ describe('AiService', () => {
   });
 
   it('enforces rate limiting', async () => {
-    const successPayload = {
-      candidates: [
-        {
-          content: { parts: [{ text: 'respuesta' }] },
-        },
-      ],
-      usageMetadata: { totalTokenCount: 10 },
-    };
+    const limiter = (
+      service as unknown as {
+        getRateLimiter: (operation: string) => {
+          consume: (key: string) => void;
+        };
+      }
+    ).getRateLimiter('generate');
 
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify(successPayload), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-
-    // generate() limit is 30/min; overrun with 31 sequential calls
+    const rateKey = 'generate:global';
     for (let i = 0; i < 30; i++) {
-      await service.generate({ prompt: `hola ${i}` });
+      limiter.consume(rateKey);
     }
 
     await expect(
       service.generate({ prompt: 'rate limit trigger' }),
     ).rejects.toBeInstanceOf(ApiHttpException);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('wraps timeout errors with AI_TIMEOUT code', async () => {

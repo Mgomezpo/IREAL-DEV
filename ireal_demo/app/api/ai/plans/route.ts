@@ -1,23 +1,28 @@
-import { randomUUID } from "crypto"
-import { NextRequest, NextResponse } from "next/server"
-import { callService } from "@/lib/service-client"
+import { randomUUID } from "crypto";
+import { NextRequest, NextResponse } from "next/server";
+import { callService } from "@/lib/service-client";
+import { resolveUserIdForRateLimit } from "@/lib/request-context";
 
-const SERVICE_PATH = "/v1/ai/plans"
+const SERVICE_PATH = "/v1/ai/plans";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const body = await request.json();
+    const userId = await resolveUserIdForRateLimit(request);
 
     const response = await callService(SERVICE_PATH, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-id": userId,
+      },
       body: JSON.stringify(body),
-    })
+    });
 
-    const payload = await response.json()
-    return NextResponse.json(payload, { status: response.status })
+    const payload = await response.json();
+    return NextResponse.json(payload, { status: response.status });
   } catch (error) {
-    console.error("[v0] Plans AI API error:", error)
+    console.error("[v0] Plans AI API error:", error);
     return NextResponse.json(
       {
         data: null,
@@ -25,6 +30,6 @@ export async function POST(request: NextRequest) {
         meta: { requestId: randomUUID() },
       },
       { status: 500 },
-    )
+    );
   }
 }

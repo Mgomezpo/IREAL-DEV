@@ -1,5 +1,273 @@
 openapi: 3.0.0
 paths:
+  /metrics:
+    get:
+      operationId: MetricsController_getMetrics
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      tags:
+        - Metrics
+  /v1/ideas:
+    get:
+      operationId: IdeasController_list
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      tags: &a1
+        - Ideas
+    post:
+      operationId: IdeasController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIdeaDto"
+      responses:
+        "201":
+          description: ""
+      tags: *a1
+  /v1/ideas/{id}:
+    get:
+      operationId: IdeasController_getById
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      tags: *a1
+    patch:
+      operationId: IdeasController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateIdeaDto"
+      responses:
+        "200":
+          description: ""
+      tags: *a1
+    delete:
+      operationId: IdeasController_remove
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "204":
+          description: ""
+      tags: *a1
+  /v1/ideas/{id}/attach-plans:
+    post:
+      operationId: IdeasController_attachPlans
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttachPlansDto"
+      responses:
+        "201":
+          description: ""
+      tags: *a1
+  /v1/plans:
+    get:
+      operationId: PlansController_list
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      tags: &a2
+        - Plans
+    post:
+      operationId: PlansController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlanDto"
+      responses:
+        "201":
+          description: ""
+      tags: *a2
+  /v1/plans/{planId}:
+    get:
+      operationId: PlansController_get
+      parameters:
+        - name: planId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      tags: *a2
+    patch:
+      operationId: PlansController_update
+      parameters:
+        - name: planId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlanDto"
+      responses:
+        "200":
+          description: ""
+      tags: *a2
+    delete:
+      operationId: PlansController_remove
+      parameters:
+        - name: planId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "204":
+          description: ""
+      tags: *a2
+  /v1/plans/{planId}/sections:
+    get:
+      operationId: PlansController_listSections
+      parameters:
+        - name: planId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      tags: *a2
+    post:
+      operationId: PlansController_createSection
+      parameters:
+        - name: planId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSectionDto"
+      responses:
+        "201":
+          description: ""
+      tags: *a2
+  /v1/plans/{planId}/sections/{sectionId}:
+    patch:
+      operationId: PlansController_updateSection
+      parameters:
+        - name: planId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: sectionId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSectionDto"
+      responses:
+        "200":
+          description: ""
+      tags: *a2
+    delete:
+      operationId: PlansController_removeSection
+      parameters:
+        - name: planId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: sectionId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "204":
+          description: ""
+      tags: *a2
+  /v1/plans/{planId}/sections{reorder}:
+    post:
+      operationId: PlansController_reorderSections
+      parameters:
+        - name: planId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderSectionsDto"
+      responses:
+        "201":
+          description: ""
+      tags: *a2
+  /v1/plans/{planId}/ideas{attach}:
+    post:
+      operationId: PlansController_attachIdeas
+      parameters:
+        - name: planId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttachIdeasDto"
+      responses:
+        "201":
+          description: ""
+      tags: *a2
   /v1/ai/generate:
     post:
       operationId: AiController_generate
@@ -13,7 +281,7 @@ paths:
       responses:
         "201":
           description: ""
-      tags: &a1
+      tags: &a3
         - Ai
   /v1/ai/plan-chat:
     post:
@@ -28,7 +296,7 @@ paths:
       responses:
         "201":
           description: ""
-      tags: *a1
+      tags: *a3
   /v1/ai/nudge:
     post:
       operationId: AiController_nudge
@@ -42,7 +310,7 @@ paths:
       responses:
         "201":
           description: ""
-      tags: *a1
+      tags: *a3
   /v1/ai/plans:
     post:
       operationId: AiController_planAssist
@@ -56,7 +324,7 @@ paths:
       responses:
         "201":
           description: ""
-      tags: *a1
+      tags: *a3
   /v1/ai/calendar:
     post:
       operationId: AiController_calendar
@@ -70,16 +338,7 @@ paths:
       responses:
         "201":
           description: ""
-      tags: *a1
-  /metrics:
-    get:
-      operationId: MetricsController_getMetrics
-      parameters: []
-      responses:
-        "200":
-          description: ""
-      tags:
-        - Metrics
+      tags: *a3
   /healthz:
     get:
       operationId: HealthController_getHealth
@@ -98,6 +357,33 @@ tags: []
 servers: []
 components:
   schemas:
+    CreateIdeaDto:
+      type: object
+      properties: {}
+    UpdateIdeaDto:
+      type: object
+      properties: {}
+    AttachPlansDto:
+      type: object
+      properties: {}
+    CreatePlanDto:
+      type: object
+      properties: {}
+    UpdatePlanDto:
+      type: object
+      properties: {}
+    CreateSectionDto:
+      type: object
+      properties: {}
+    UpdateSectionDto:
+      type: object
+      properties: {}
+    ReorderSectionsDto:
+      type: object
+      properties: {}
+    AttachIdeasDto:
+      type: object
+      properties: {}
     GenerateAiDto:
       type: object
       properties: {}

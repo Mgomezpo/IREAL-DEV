@@ -8,6 +8,7 @@ import { MetricsModule } from './metrics/metrics.module';
 import { PiecesModule } from './pieces/pieces.module';
 import { PlansModule } from './plans/plans.module';
 import { validateEnv } from './common/config/env.validation';
+import { ObservabilityModule } from './common/observability/observability.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { validateEnv } from './common/config/env.validation';
       cache: true,
       validate: validateEnv,
     }),
+    ObservabilityModule,
     AuthModule,
     IdeasModule,
     PlansModule,

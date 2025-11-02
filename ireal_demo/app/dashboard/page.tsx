@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import type React from "react"
 import { useState, useEffect } from "react"
@@ -413,7 +413,7 @@ export default function Dashboard() {
 
   const formattedIdeas = ideas.map((idea) => ({
     id: idea.id,
-    title: idea.title || "Sin título",
+    title: idea.title || "Sin titulo",
     meta: new Date(idea.created_at).toLocaleDateString("es-ES", {
       day: "numeric",
       month: "short",

@@ -61,8 +61,8 @@ Modules inside ireal-service
 - Versioning: `/v1` initially; backward‑compatible changes preferred
 
 Representative endpoints
-- Ideas: `GET/POST /v1/ideas`, `GET/DELETE /v1/ideas/{id}`
-- Plans: `GET/POST /v1/plans`, `PATCH /v1/plans/{id}`, `POST /v1/plans/{id}/sections:reorder`
+- Ideas: `GET/POST /v1/ideas`, `GET/DELETE /v1/ideas/{id}`, `POST /v1/ideas/{id}/plans:attach`
+- Plans: `GET/POST /v1/plans`, `GET/PATCH/DELETE /v1/plans/{id}`, sections CRUD (`POST /v1/plans/{id}/sections`, `PATCH/DELETE /v1/plans/{id}/sections/{sectionId}`), `POST /v1/plans/{id}/sections:reorder`, and `POST /v1/plans/{id}/ideas:attach`
 - AI: `POST /v1/ai/generate`, `POST /v1/ai/plan-chat`, `POST /v1/ai/calendar`
 - Health/Metrics: `GET /healthz`, `GET /metrics`
 
@@ -128,4 +128,3 @@ ireal-service/
 ```
 
 Appendix: Please confirm the above assumptions and choices reflect your environment so I can refine DTOs and endpoint contracts next.
-

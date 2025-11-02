@@ -1,18 +1,24 @@
-import { randomUUID } from "crypto"
-import { NextRequest, NextResponse } from "next/server"
-import { callService } from "@/lib/service-client"
+import { randomUUID } from "crypto";
+import { NextRequest, NextResponse } from "next/server";
+import { callService } from "@/lib/service-client";
+import { resolveUserIdForRateLimit } from "@/lib/request-context";
 
-const SERVICE_PATH = "/v1/ai/calendar"
+const SERVICE_PATH = "/v1/ai/calendar";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const body = await request.json();
+
+    const userId = await resolveUserIdForRateLimit(request);
 
     const response = await callService(SERVICE_PATH, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-id": userId,
+      },
       body: JSON.stringify(body),
-    })
+    });
 
     if (!response.body) {
       return NextResponse.json(
@@ -22,54 +28,57 @@ export async function POST(request: NextRequest) {
           meta: { requestId: randomUUID() },
         },
         { status: 502 },
-      )
+      );
     }
 
     const stream = new ReadableStream({
       start(controller) {
-        const reader = response.body!.getReader()
+        const reader = response.body!.getReader();
         const forward = (): void => {
           reader
             .read()
             .then(({ value, done }) => {
               if (done) {
-                controller.close()
-                return
+                controller.close();
+                return;
               }
               if (value) {
-                controller.enqueue(value)
+                controller.enqueue(value);
               }
-              forward()
+              forward();
             })
             .catch((error) => {
-              controller.error(error)
-            })
-        }
-        forward()
+              controller.error(error);
+            });
+        };
+        forward();
       },
       cancel(reason) {
-        response.body?.cancel(reason).catch(() => {})
+        response.body?.cancel(reason).catch(() => {});
       },
-    })
+    });
 
-    const headers = new Headers(response.headers)
-    headers.set("Content-Type", "text/event-stream")
-    headers.set("Cache-Control", "no-cache")
-    headers.set("Connection", "keep-alive")
+    const headers = new Headers(response.headers);
+    headers.set("Content-Type", "text/event-stream");
+    headers.set("Cache-Control", "no-cache");
+    headers.set("Connection", "keep-alive");
 
     return new Response(stream, {
       status: response.status,
       headers,
-    })
+    });
   } catch (error) {
-    console.error("[v0] Calendar generation error:", error)
+    console.error("[v0] Calendar generation error:", error);
     return NextResponse.json(
       {
         data: null,
-        error: { code: "AI_CALENDAR_ERROR", message: "Error generating calendar" },
+        error: {
+          code: "AI_CALENDAR_ERROR",
+          message: "Error generating calendar",
+        },
         meta: { requestId: randomUUID() },
       },
       { status: 500 },
-    )
+    );
   }
 }

@@ -7,6 +7,9 @@ import { AppModule } from './app.module';
 import { ApiExceptionFilter } from './common/filters/api-exception.filter';
 import { createValidationPipe } from './common/pipes/api-validation.pipe';
 import { getAppVersion } from './common/version.util';
+import { correlationMiddleware } from './common/observability/correlation.middleware';
+import { HttpMetricsMiddleware } from './common/observability/http-metrics.middleware';
+import { RequestLoggingInterceptor } from './common/observability/request-logging.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -15,8 +18,13 @@ async function bootstrap() {
 
   app.use(json({ limit: '1mb' }));
   app.use(urlencoded({ extended: true }));
+  app.use(correlationMiddleware);
+  const httpMetricsMiddleware = app.get(HttpMetricsMiddleware);
+  app.use(httpMetricsMiddleware.use.bind(httpMetricsMiddleware));
   app.useGlobalPipes(createValidationPipe());
   app.useGlobalFilters(new ApiExceptionFilter());
+  const requestLoggingInterceptor = app.get(RequestLoggingInterceptor);
+  app.useGlobalInterceptors(requestLoggingInterceptor);
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3333);

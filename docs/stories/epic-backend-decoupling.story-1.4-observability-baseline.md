@@ -1,6 +1,6 @@
 # Story 1.4 – Observability Baseline
 
-Status: Draft
+Status: Ready for Review
 Epic: docs/epics/epic-backend-decoupling.md
 
 ## Story

@@ -13,6 +13,9 @@ export const envSchema = z.object({
     .min(1, 'NEXT_PUBLIC_SUPABASE_ANON_KEY is required'),
   AI_PROVIDER: z.string().min(1, 'AI_PROVIDER is required'),
   AI_API_KEY: z.string().min(1, 'AI_API_KEY is required'),
+  LOG_LEVEL: z
+    .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
+    .default('info'),
   RATE_LIMIT_WINDOW_SECONDS: z.coerce
     .number()
     .min(1, 'RATE_LIMIT_WINDOW_SECONDS must be at least 1')
@@ -33,6 +36,17 @@ export const envSchema = z.object({
     .number()
     .min(1, 'WRITE_RATE_LIMIT_PER_IP must be at least 1')
     .default(120),
+  ERROR_LOG_SAMPLE_RATE: z.coerce
+    .number()
+    .min(0, 'ERROR_LOG_SAMPLE_RATE must be >= 0')
+    .max(1, 'ERROR_LOG_SAMPLE_RATE must be <= 1')
+    .default(0.1),
+  SUPABASE_SERVICE_URL: z
+    .string()
+    .url('SUPABASE_SERVICE_URL must be a valid URL'),
+  SUPABASE_SERVICE_ROLE_KEY: z
+    .string()
+    .min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
 });
 
 export type Env = z.infer<typeof envSchema>;

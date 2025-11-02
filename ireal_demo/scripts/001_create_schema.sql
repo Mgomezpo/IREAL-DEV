@@ -1,4 +1,4 @@
--- IREAL Database Schema
+﻿-- IREAL Database Schema
 -- Multi-user workspace for content creators
 
 -- Enable UUID extension
@@ -8,7 +8,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS ideas (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  title TEXT NOT NULL DEFAULT 'Sin título',
+  title TEXT NOT NULL DEFAULT 'Sin titulo',
   content TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

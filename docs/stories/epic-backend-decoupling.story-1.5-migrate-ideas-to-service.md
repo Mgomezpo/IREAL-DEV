@@ -1,6 +1,6 @@
 # Story 1.5 – Migrate Ideas to Service
 
-Status: Draft
+Status: Ready for Review
 Epic: docs/epics/epic-backend-decoupling.md
 
 ## Story
@@ -25,3 +25,25 @@ IV3. p95 latency < 300 ms maintained for non-AI ops
 - Stories 1.1–1.4 completed
 
 ---
+
+## Dev Agent Record
+### Summary
+- Added Supabase infrastructure modules plus typed `IdeasService`/controller covering CRUD, search, and plan-attachment endpoints with explicit plan ownership validation and envelope responses.
+- Replaced Next.js ideas API routes with service-aware proxies gated by `IDEAS_SERVICE_ENABLED`, including attach-plans handling and service client helper updates.
+- Documented new env requirements, refreshed OpenAPI spec, and added seed script plus request-context utilities to support feature-flagged rollout.
+### Tests
+- `npm run lint` (ireal-service)
+- `npm run test` (ireal-service)
+- `npm run build` (ireal-service)
+- `npm run openapi` (ireal-service; temporary stub env vars for Supabase + AI config)
+- `npm run lint` (ireal_demo) (not run: local install missing `next` CLI; requires workspace install)
+### File List
+- `ireal-service/src/common/supabase/**`
+- `ireal-service/src/ideas/**`
+- `ireal-service/src/scripts/seed-ideas.ts`
+- `ireal_demo/app/api/ideas/**`
+- `ireal_demo/lib/request-context.ts`
+- `ireal_demo/lib/service-client.ts`
+- `ireal_demo/scripts/001_create_schema.sql`
+- `docs/dev-quickstart.md`
+- `docs/api/openapi.yaml`

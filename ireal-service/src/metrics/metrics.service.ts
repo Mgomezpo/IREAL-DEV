@@ -30,6 +30,20 @@ export class MetricsService implements OnModuleInit {
     labelNames: ['operation', 'reason'],
     registers: [this.registry],
   });
+  private readonly httpDurationHistogram = new Histogram({
+    name: 'ireal_service_http_request_duration_ms',
+    help: 'HTTP request duration in milliseconds',
+    labelNames: ['method', 'route', 'status_code'],
+    buckets: [50, 100, 250, 500, 1000, 2000, 5000, 10000],
+    registers: [this.registry],
+  });
+
+  private readonly httpRequestCounter = new Counter({
+    name: 'ireal_service_http_requests_total',
+    help: 'Total HTTP requests processed',
+    labelNames: ['method', 'route', 'status_code'],
+    registers: [this.registry],
+  });
 
   onModuleInit() {
     collectDefaultMetrics({
@@ -56,5 +70,23 @@ export class MetricsService implements OnModuleInit {
 
   incrementAiErrors(operation: string, reason: string) {
     this.aiErrorCounter.inc({ operation, reason });
+  }
+
+  observeHttpRequest(
+    method: string,
+    route: string,
+    statusCode: number,
+    latencyMs: number,
+  ) {
+    const statusLabel = String(statusCode);
+    this.httpRequestCounter.inc({
+      method,
+      route,
+      status_code: statusLabel,
+    });
+    this.httpDurationHistogram.observe(
+      { method, route, status_code: statusLabel },
+      latencyMs,
+    );
   }
 }

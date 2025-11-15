@@ -18,7 +18,7 @@
    - Shared: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - Service: `AI_PROVIDER`, `AI_API_KEY`, optional `PORT`, rate-limit defaults (`RATE_LIMIT_WINDOW_SECONDS`, `AI_RATE_LIMIT_PER_USER`, `AI_RATE_LIMIT_PER_IP`, `WRITE_RATE_LIMIT_PER_USER`, `WRITE_RATE_LIMIT_PER_IP`), log config (`LOG_LEVEL`, `ERROR_LOG_SAMPLE_RATE`), Supabase service credentials (`SUPABASE_SERVICE_URL`, `SUPABASE_SERVICE_ROLE_KEY`)
    - Next.js server: `IREAL_SERVICE_URL` (e.g., `http://localhost:3333`) so API routes can proxy to the NestJS service
-   - Feature flags: `IDEAS_SERVICE_ENABLED=true` (Story 1.5) and `PLANS_SERVICE_ENABLED=true` (Story 1.6) to route the Next.js API layer through the Nest service
+   - Feature flags: `IDEAS_SERVICE_ENABLED=true` (Story 1.5), `PLANS_SERVICE_ENABLED=true` (Story 1.6), and `CALENDAR_SERVICE_ENABLED=true` (Story 1.7) to route the Next.js API layer through the Nest service
 
 ## Install Dependencies
 - From repo root run `pnpm install --filter ireal_demo...`

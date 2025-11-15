@@ -113,6 +113,95 @@
         };
         Relationships: [];
       };
+      calendar_runs: {
+        Row: {
+          id: string;
+          calendar_id: string;
+          user_id: string;
+          plan_id: string | null;
+          status: 'completed' | 'timeout' | 'failed';
+          started_at: string;
+          completed_at: string | null;
+          tokens: number | null;
+          model: string | null;
+          latency_ms: number | null;
+          piece_count: number;
+          diff: Record<string, unknown> | null;
+          constraints: Record<string, unknown> | null;
+          cadence: string;
+          channels: string[];
+          start_date: string;
+          end_date: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          calendar_id: string;
+          user_id: string;
+          plan_id?: string | null;
+          status: 'completed' | 'timeout' | 'failed';
+          started_at?: string;
+          completed_at?: string | null;
+          tokens?: number | null;
+          model?: string | null;
+          latency_ms?: number | null;
+          piece_count?: number;
+          diff?: Record<string, unknown> | null;
+          constraints?: Record<string, unknown> | null;
+          cadence: string;
+          channels?: string[];
+          start_date: string;
+          end_date: string;
+          created_at?: string;
+        };
+        Update: {
+          plan_id?: string | null;
+          status?: 'completed' | 'timeout' | 'failed';
+          started_at?: string;
+          completed_at?: string | null;
+          tokens?: number | null;
+          model?: string | null;
+          latency_ms?: number | null;
+          piece_count?: number;
+          diff?: Record<string, unknown> | null;
+          constraints?: Record<string, unknown> | null;
+          cadence?: string;
+          channels?: string[];
+          start_date?: string;
+          end_date?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      calendar_entries: {
+        Row: {
+          id: string;
+          run_id: string;
+          calendar_id: string;
+          user_id: string;
+          plan_id: string | null;
+          entry_key: string;
+          payload: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          run_id: string;
+          calendar_id: string;
+          user_id: string;
+          plan_id?: string | null;
+          entry_key: string;
+          payload: Record<string, unknown>;
+          created_at?: string;
+        };
+        Update: {
+          plan_id?: string | null;
+          entry_key?: string;
+          payload?: Record<string, unknown>;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

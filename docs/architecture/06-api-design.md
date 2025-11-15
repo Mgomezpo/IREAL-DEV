@@ -7,7 +7,7 @@
 ### Representative Endpoints
 - Ideas: `GET/POST /v1/ideas`, `GET/DELETE /v1/ideas/{id}`, `POST /v1/ideas/{id}/plans:attach`
 - Plans: `GET/POST /v1/plans`, `GET/PATCH/DELETE /v1/plans/{id}`, sections CRUD (`POST /v1/plans/{id}/sections`, `PATCH/DELETE /v1/plans/{id}/sections/{sectionId}`), `POST /v1/plans/{id}/sections:reorder`, and `POST /v1/plans/{id}/ideas:attach`
-- AI: `POST /v1/ai/generate`, `POST /v1/ai/plan-chat`, `POST /v1/ai/calendar`
+- AI: `POST /v1/ai/generate`, `POST /v1/ai/plan-chat`, `POST /v1/ai/calendar` (SSE stream: per-piece chunks followed by summary/diff; persists runs to `calendar_runs`/`calendar_entries` with rollback-safe history)
 - Health/Metrics: `GET /healthz`, `GET /metrics`
 
 ### Response Envelope

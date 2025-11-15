@@ -5,6 +5,8 @@ ALTER TABLE plan_sections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ideas_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pieces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE calendar_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE calendar_entries ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for IDEAS
 CREATE POLICY "Users can view their own ideas"
@@ -116,4 +118,38 @@ CREATE POLICY "Users can update their own assets"
 
 CREATE POLICY "Users can delete their own assets"
   ON assets FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for CALENDAR_RUNS
+CREATE POLICY "Users can view their own calendar runs"
+  ON calendar_runs FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own calendar runs"
+  ON calendar_runs FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own calendar runs"
+  ON calendar_runs FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own calendar runs"
+  ON calendar_runs FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for CALENDAR_ENTRIES
+CREATE POLICY "Users can view their own calendar entries"
+  ON calendar_entries FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own calendar entries"
+  ON calendar_entries FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own calendar entries"
+  ON calendar_entries FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own calendar entries"
+  ON calendar_entries FOR DELETE
   USING (auth.uid() = user_id);

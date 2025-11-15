@@ -10,7 +10,6 @@ import { UpdateSectionDto } from './dto/update-section.dto';
 import { ReorderSectionsDto } from './dto/reorder-sections.dto';
 import { AttachIdeasDto } from './dto/attach-ideas.dto';
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
 type PlanRow = Database['public']['Tables']['plans']['Row'];
 type PlanInsert = Database['public']['Tables']['plans']['Insert'];
 type PlanUpdate = Database['public']['Tables']['plans']['Update'];
@@ -667,4 +666,3 @@ export class PlansService {
     }
   }
 }
-/* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */

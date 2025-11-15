@@ -2,6 +2,8 @@ import { ConfigService } from '@nestjs/config';
 import { ApiHttpException } from '../common/envelope';
 import { AiService } from './ai.service';
 import { MetricsService } from '../metrics/metrics.service';
+import { SupabaseService } from '../common/supabase/supabase.service';
+import { CalendarCadence } from './dto/calendar.dto';
 
 describe('AiService', () => {
   let service: AiService;
@@ -21,9 +23,19 @@ describe('AiService', () => {
     incrementAiErrors: jest.fn(),
   } as unknown as MetricsService;
 
+  const supabaseMock = {
+    getClient: jest.fn(() => ({
+      from: jest.fn().mockReturnValue({
+        insert: jest.fn().mockResolvedValue({}),
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+      }),
+    })),
+  } as unknown as SupabaseService;
+
   beforeEach(() => {
     jest.restoreAllMocks();
-    service = new AiService(configMock, metricsMock);
+    service = new AiService(configMock, metricsMock, supabaseMock);
   });
 
   afterEach(() => {
@@ -113,5 +125,111 @@ describe('AiService', () => {
     await expect(
       service.generate({ prompt: 'timeout test' }),
     ).rejects.toBeInstanceOf(ApiHttpException);
+  });
+
+  it('normalizes calendar requests with defaults', () => {
+    const start = new Date('2025-11-01T00:00:00.000Z').toISOString();
+    const end = new Date('2025-11-07T00:00:00.000Z').toISOString();
+
+    const normalize = (
+      service as unknown as {
+        normalizeCalendarRequest: (dto: {
+          channels: string[];
+          cadence: CalendarCadence;
+          start: string;
+          end: string;
+        }) => {
+          channels: string[];
+          cadence: CalendarCadence;
+          calendarId: string;
+        };
+      }
+    ).normalizeCalendarRequest({
+      channels: ['instagram'],
+      cadence: CalendarCadence.WEEKLY,
+      start,
+      end,
+    });
+
+    expect(normalize.channels).toEqual(['instagram']);
+    expect(normalize.cadence).toBe(CalendarCadence.WEEKLY);
+    expect(normalize.calendarId).toEqual(expect.any(String));
+  });
+
+  it('computes calendar diffs across runs', () => {
+    const computeDiff = (
+      service as unknown as {
+        computeCalendarDiff: (
+          previous: Array<{
+            title: string;
+            channel: string;
+            date: string;
+            time: string;
+            format: string;
+            copy: string;
+            script: string;
+            targetAudience: string;
+            hashtags: string[];
+          }>,
+          nextPieces: Array<{
+            title: string;
+            channel: string;
+            date: string;
+            time: string;
+            format: string;
+            copy: string;
+            script: string;
+            targetAudience: string;
+            hashtags: string[];
+          }>,
+        ) => {
+          added: unknown[];
+          updated: Array<{ before: unknown; after: unknown }>;
+          removed: unknown[];
+        };
+      }
+    ).computeCalendarDiff(
+      [
+        {
+          title: 'Post 1',
+          channel: 'instagram',
+          date: '2025-11-01',
+          time: '09:00',
+          format: 'post',
+          copy: 'hola',
+          script: 'script',
+          targetAudience: 'audiencia',
+          hashtags: ['hola'],
+        },
+      ],
+      [
+        {
+          title: 'Post 1',
+          channel: 'instagram',
+          date: '2025-11-01',
+          time: '09:00',
+          format: 'post',
+          copy: 'hola mundo',
+          script: 'script',
+          targetAudience: 'audiencia',
+          hashtags: ['hola'],
+        },
+        {
+          title: 'Post 2',
+          channel: 'tiktok',
+          date: '2025-11-02',
+          time: '09:00',
+          format: 'video',
+          copy: 'nuevo',
+          script: 'script',
+          targetAudience: 'audiencia',
+          hashtags: ['nuevo'],
+        },
+      ],
+    );
+
+    expect(computeDiff.added).toHaveLength(1);
+    expect(computeDiff.updated).toHaveLength(1);
+    expect(computeDiff.removed).toHaveLength(0);
   });
 });

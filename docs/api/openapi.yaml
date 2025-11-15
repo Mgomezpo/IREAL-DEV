@@ -336,8 +336,18 @@ paths:
             schema:
               $ref: "#/components/schemas/CalendarRequestDto"
       responses:
-        "201":
-          description: ""
+        "200":
+          description: Server Sent Events stream with calendar chunks and summary.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: >
+                  event: data
+                  data: {"data":{"type":"calendar_piece","runId":"...","calendarId":"...","index":0,"total":3,"piece":{"title":"Publicación 1","channel":"instagram","format":"post","copy":"...","script":"...","targetAudience":"...","date":"2025-11-05","time":"09:00","hashtags":["marketing"]}},"error":null,"meta":{"requestId":"...","provider":"test-provider","chunk":true,"index":0,"total":3}}
+
+                  event: done
+                  data: {"data":{"type":"calendar_summary","calendarId":"...","runId":"...","pieceCount":3,"status":"completed","diff":{"added":[{"title":"Publicación 1","channel":"instagram","format":"post","copy":"...","script":"...","targetAudience":"...","date":"2025-11-05","time":"09:00","hashtags":["marketing"]}],"updated":[],"removed":[]}},"error":null,"meta":{"requestId":"...","provider":"test-provider"}}
       tags: *a3
   /healthz:
     get:
@@ -398,4 +408,121 @@ components:
       properties: {}
     CalendarRequestDto:
       type: object
-      properties: {}
+      required:
+        - channels
+        - cadence
+        - start
+        - end
+      properties:
+        channels:
+          type: array
+          description: Content channels to populate during generation.
+          items:
+            type: string
+        cadence:
+          type: string
+          enum:
+            - daily
+            - weekly
+            - monthly
+        start:
+          type: string
+          format: date-time
+          description: ISO8601 start date for the calendar window.
+        end:
+          type: string
+          format: date-time
+          description: ISO8601 end date for the calendar window.
+        constraints:
+          type: object
+          additionalProperties: true
+          description: Arbitrary constraints or guidance to influence the schedule.
+        calendarId:
+          type: string
+          format: uuid
+          description: Existing calendar identifier to diff against on regeneration.
+        planId:
+          type: string
+          format: uuid
+          description: Optional plan identifier associated with this calendar run.
+        timezone:
+          type: string
+        objectives:
+          type: string
+        ideas:
+          type: string
+        pillars:
+          type: string
+        accounts:
+          type: array
+          items:
+            type: string
+    CalendarPiece:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        channel:
+          type: string
+        format:
+          type: string
+        copy:
+          type: string
+        script:
+          type: string
+        targetAudience:
+          type: string
+        date:
+          type: string
+          format: date
+        time:
+          type: string
+        hashtags:
+          type: array
+          items:
+            type: string
+    CalendarDiff:
+      type: object
+      properties:
+        added:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarPiece"
+        updated:
+          type: array
+          items:
+            type: object
+            properties:
+              before:
+                $ref: "#/components/schemas/CalendarPiece"
+              after:
+                $ref: "#/components/schemas/CalendarPiece"
+        removed:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarPiece"
+    CalendarSummaryEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          example: calendar_summary
+        calendarId:
+          type: string
+          format: uuid
+        runId:
+          type: string
+          format: uuid
+        pieceCount:
+          type: integer
+        status:
+          type: string
+          enum:
+            - completed
+            - timeout
+            - failed
+        diff:
+          $ref: "#/components/schemas/CalendarDiff"

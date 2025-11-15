@@ -1,4 +1,11 @@
-import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Headers,
+  Post,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { ApiEnvelope } from '../common/envelope';
 import { RateLimit } from '../common/rate-limit/rate-limit.decorator';
@@ -52,7 +59,9 @@ export class AiController {
   calendar(
     @Body() dto: CalendarRequestDto,
     @Res() res: Response,
+    @Headers('x-user-id') userId?: string,
+    @Headers('x-request-id') requestId?: string,
   ): Promise<void> {
-    return this.aiService.streamCalendar(dto, res);
+    return this.aiService.streamCalendar(dto, res, { userId, requestId });
   }
 }

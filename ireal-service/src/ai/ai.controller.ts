@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Get,
   Headers,
+  Param,
   Post,
   Res,
   UseGuards,
@@ -20,7 +22,7 @@ import { AiService } from './ai.service';
 import { GenerateAiDto } from './dto/generate-ai.dto';
 import { PlanChatDto } from './dto/plan-chat.dto';
 import { NudgeDto } from './dto/nudge.dto';
-import { CalendarRequestDto } from './dto/calendar.dto';
+import { CalendarRequestDto, SaveCalendarEntriesDto } from './dto/calendar.dto';
 import { PlanAssistDto } from './dto/plan-assist.dto';
 
 @Controller('v1/ai')
@@ -63,5 +65,25 @@ export class AiController {
     @Headers('x-request-id') requestId?: string,
   ): Promise<void> {
     return this.aiService.streamCalendar(dto, res, { userId, requestId });
+  }
+
+  @Post('calendar/save')
+  @RateLimit('ai')
+  saveCalendarEntries(
+    @Body() dto: SaveCalendarEntriesDto,
+    @Headers('x-user-id') userId?: string,
+    @Headers('x-request-id') requestId?: string,
+  ): Promise<ApiEnvelope<{ calendarId: string; runId: string }>> {
+    return this.aiService.saveCalendarEntries(dto, { userId, requestId });
+  }
+
+  @Get('calendar/:calendarId')
+  @RateLimit('ai')
+  getCalendar(
+    @Param('calendarId') calendarId: string,
+    @Headers('x-user-id') userId?: string,
+    @Headers('x-request-id') requestId?: string,
+  ): Promise<ApiEnvelope<{ calendarId: string; entries: unknown[] }>> {
+    return this.aiService.getCalendar(calendarId, { userId, requestId });
   }
 }

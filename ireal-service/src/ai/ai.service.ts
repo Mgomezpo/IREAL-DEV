@@ -15,7 +15,11 @@ import { RateLimiter } from '../common/rate-limiter';
 import { GenerateAiDto } from './dto/generate-ai.dto';
 import { PlanChatDto } from './dto/plan-chat.dto';
 import { NudgeDto } from './dto/nudge.dto';
-import { CalendarCadence, CalendarRequestDto } from './dto/calendar.dto';
+import {
+  CalendarCadence,
+  CalendarRequestDto,
+  SaveCalendarEntriesDto,
+} from './dto/calendar.dto';
 import { PlanAssistDto } from './dto/plan-assist.dto';
 
 interface AiCallResult {
@@ -121,7 +125,7 @@ interface NormalizedCalendarRequest {
   pillars?: string;
 }
 
-interface CalendarDiff {
+interface CalendarDiff extends Record<string, unknown> {
   added: CalendarPiece[];
   updated: Array<{ before: CalendarPiece; after: CalendarPiece }>;
   removed: CalendarPiece[];
@@ -524,6 +528,13 @@ Requested command: ${command}`;
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders?.();
+    const heartbeat = setInterval(() => {
+      if (res.writableEnded) {
+        clearInterval(heartbeat);
+        return;
+      }
+      res.write(`: keep-alive\n\n`);
+    }, 10_000);
 
     let status: 'completed' | 'timeout' | 'failed' = 'completed';
     let diff: CalendarDiff = { added: [], updated: [], removed: [] };
@@ -635,8 +646,22 @@ Requested command: ${command}`;
 
       res.write(`event: error\n`);
       res.write(`data: ${JSON.stringify(envelope)}\n\n`);
-      res.end();
+
+      if (!res.writableEnded) {
+        this.streamCalendarPayload(res, pieces, {
+          runId,
+          summary: {
+            calendarId: normalized.calendarId,
+            runId,
+            diff,
+            pieceCount: pieces.length,
+            status,
+          },
+          metadata: { provider: this.provider, status },
+        });
+      }
     } finally {
+      clearInterval(heartbeat);
       this.releaseCalendarLock(lockKey);
     }
   }
@@ -651,6 +676,116 @@ Requested command: ${command}`;
 
   private releaseCalendarLock(lockKey: string): void {
     this.calendarLocks.delete(lockKey);
+  }
+
+  async saveCalendarEntries(
+    dto: SaveCalendarEntriesDto,
+    context: { userId?: string; requestId?: string } = {},
+  ): Promise<ApiEnvelope<{ calendarId: string; runId: string }>> {
+    const userId = context.userId ?? 'anonymous';
+    const runId = randomUUID();
+    const pieces = this.enrichCalendarPieces(dto.entries as CalendarPiece[]);
+    const client = this.supabase.getClient();
+
+    const dateStrings = pieces.map((piece) => piece.date).filter(Boolean);
+    const startDate =
+      dateStrings.length > 0
+        ? new Date(Math.min(...dateStrings.map((d) => Date.parse(d))))
+        : new Date();
+    const endDate =
+      dateStrings.length > 0
+        ? new Date(Math.max(...dateStrings.map((d) => Date.parse(d))))
+        : startDate;
+
+    try {
+      await client.from('calendar_runs').insert({
+        id: runId,
+        calendar_id: dto.calendarId,
+        user_id: userId,
+        plan_id: dto.planId ?? null,
+        status: 'completed',
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        tokens: null,
+        model: null,
+        latency_ms: null,
+        piece_count: pieces.length,
+        diff: null,
+        constraints: null,
+        cadence: 'manual',
+        channels: Array.from(new Set(pieces.map((piece) => piece.channel))),
+        start_date: startDate.toISOString().slice(0, 10),
+        end_date: endDate.toISOString().slice(0, 10),
+      });
+
+      await client
+        .from('calendar_entries')
+        .delete()
+        .eq('calendar_id', dto.calendarId)
+        .eq('user_id', userId);
+
+      if (pieces.length > 0) {
+        const entryPayloads = pieces.map((piece, index) => ({
+          run_id: runId,
+          calendar_id: dto.calendarId,
+          user_id: userId,
+          plan_id: dto.planId ?? null,
+          entry_key: this.buildEntryKey(piece) || `${index}`,
+          payload: { ...piece, order: index },
+        }));
+
+        await client.from('calendar_entries').insert(entryPayloads);
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'unknown error';
+      this.logger.error(`Failed to save calendar entries: ${message}`);
+      throw new ApiHttpException(
+        'CALENDAR_SAVE_FAILED',
+        'Could not persist calendar entries',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    return buildSuccess(
+      { calendarId: dto.calendarId, runId },
+      { provider: this.provider },
+    );
+  }
+
+  async getCalendar(
+    calendarId: string,
+    context: { userId?: string; requestId?: string } = {},
+  ): Promise<ApiEnvelope<{ calendarId: string; entries: CalendarPiece[] }>> {
+    const userId = context.userId ?? 'anonymous';
+    const client = this.supabase.getClient();
+
+    try {
+      const { data, error } = await client
+        .from('calendar_entries')
+        .select('payload')
+        .eq('calendar_id', calendarId)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const entries =
+        data?.map((row: { payload: Record<string, unknown> }) =>
+          this.deserializeCalendarPiece(row.payload),
+        ) ?? [];
+
+      return buildSuccess({ calendarId, entries }, { provider: this.provider });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'unknown error';
+      this.logger.warn(`Failed to load calendar entries: ${message}`);
+      throw new ApiHttpException(
+        'CALENDAR_NOT_FOUND',
+        'Unable to load calendar entries',
+        HttpStatus.NOT_FOUND,
+      );
+    }
   }
 
   private normalizeCalendarRequest(
@@ -778,7 +913,7 @@ Requested command: ${command}`;
         ...context.summary,
       },
       error: null,
-      meta: buildMeta(context.metadata),
+      meta: buildMeta({ ...context.metadata, done: true }),
     };
 
     res.write(`event: done\n`);

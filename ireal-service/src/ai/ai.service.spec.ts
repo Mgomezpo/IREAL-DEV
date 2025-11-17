@@ -8,6 +8,17 @@ import { CalendarCadence } from './dto/calendar.dto';
 describe('AiService', () => {
   let service: AiService;
   const fetchMock = jest.spyOn(global, 'fetch');
+  let runsTable: {
+    insert: jest.Mock;
+  };
+  let entriesTable: {
+    insert: jest.Mock;
+    delete: jest.Mock;
+    select: jest.Mock;
+    order: jest.Mock;
+    eq: jest.Mock;
+  };
+  let fromMock: jest.Mock;
 
   const configMock = {
     get: jest.fn((key: string) => {
@@ -23,19 +34,41 @@ describe('AiService', () => {
     incrementAiErrors: jest.fn(),
   } as unknown as MetricsService;
 
-  const supabaseMock = {
-    getClient: jest.fn(() => ({
-      from: jest.fn().mockReturnValue({
-        insert: jest.fn().mockResolvedValue({}),
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-      }),
-    })),
-  } as unknown as SupabaseService;
+  const supabaseMock: unknown = {
+    getClient: jest.fn(),
+  };
 
   beforeEach(() => {
     jest.restoreAllMocks();
-    service = new AiService(configMock, metricsMock, supabaseMock);
+    runsTable = {
+      insert: jest.fn().mockResolvedValue({}),
+    };
+    entriesTable = {
+      insert: jest.fn().mockResolvedValue({}),
+      delete: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      order: jest.fn(),
+      eq: jest.fn().mockReturnThis(),
+    };
+    fromMock = jest.fn((table: string) => {
+      if (table === 'calendar_runs') {
+        return runsTable;
+      }
+      if (table === 'calendar_entries') {
+        return entriesTable;
+      }
+      return {
+        insert: jest.fn().mockResolvedValue({}),
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+      };
+    });
+    (supabaseMock.getClient as jest.Mock).mockReturnValue({ from: fromMock });
+    service = new AiService(
+      configMock,
+      metricsMock,
+      supabaseMock as SupabaseService,
+    );
   });
 
   afterEach(() => {
@@ -231,5 +264,79 @@ describe('AiService', () => {
     expect(computeDiff.added).toHaveLength(1);
     expect(computeDiff.updated).toHaveLength(1);
     expect(computeDiff.removed).toHaveLength(0);
+  });
+
+  it('persists calendar edits and returns run id', async () => {
+    const result = await service.saveCalendarEntries(
+      {
+        calendarId: 'cal-1',
+        planId: 'plan-1',
+        entries: [
+          {
+            title: 'Post 1',
+            channel: 'instagram',
+            format: 'post',
+            copy: 'hola',
+            script: 'script',
+            targetAudience: 'audiencia',
+            date: '2025-11-01',
+            time: '09:00',
+            hashtags: ['hola'],
+          },
+        ],
+      },
+      { userId: 'user-1' },
+    );
+
+    expect(runsTable.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        calendar_id: 'cal-1',
+        user_id: 'user-1',
+        status: 'completed',
+        cadence: 'manual',
+        piece_count: 1,
+      }),
+    );
+    expect(entriesTable.delete).toHaveBeenCalled();
+    /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+    expect(entriesTable.insert).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          calendar_id: 'cal-1',
+          user_id: 'user-1',
+          payload: expect.objectContaining({ title: 'Post 1' }),
+        }),
+      ]),
+    );
+    /* eslint-enable @typescript-eslint/no-unsafe-assignment */
+    expect(result.data?.runId).toEqual(expect.any(String));
+  });
+
+  it('loads calendar entries for a user', async () => {
+    entriesTable.order.mockResolvedValue({
+      data: [
+        {
+          payload: {
+            title: 'Post 1',
+            channel: 'instagram',
+            format: 'post',
+            copy: 'hola',
+            script: 'script',
+            targetAudience: 'audiencia',
+            date: '2025-11-01',
+            time: '09:00',
+            hashtags: ['hola'],
+          },
+        },
+      ],
+      error: null,
+    });
+
+    const result = await service.getCalendar('cal-1', { userId: 'user-1' });
+
+    expect(entriesTable.select).toHaveBeenCalledWith('payload');
+    expect(entriesTable.eq).toHaveBeenCalledWith('calendar_id', 'cal-1');
+    expect(result.data?.entries).toHaveLength(1);
+    expect(result.data?.entries[0]).toMatchObject({ title: 'Post 1' });
   });
 });

@@ -1,0 +1,35 @@
+schema: 1
+story: '1.7'
+story_title: 'Story 1.7 - Calendar Generation Endpoint'
+gate: PASS
+status_reason: 'Streaming keep-alives/done meta and calendar persistence endpoints now implemented; AC2-AC6 satisfied.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2025-11-17T00:00:00Z'
+top_issues: []
+waiver:
+  active: false
+quality_score: 100
+evidence:
+  tests_reviewed: 2
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6]
+    ac_gaps: []
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'No new auth surface; RLS on calendar tables already enforced.'
+  performance:
+    status: PASS
+    notes: 'Heartbeats added; timeout returns summary.'
+  reliability:
+    status: PASS
+    notes: 'Streaming includes done meta; save/load endpoints persist edits.'
+  maintainability:
+    status: PASS
+    notes: 'Docs/OpenAPI updated; unit tests cover persistence.'
+recommendations:
+  immediate: []
+  future:
+    - action: 'Add integration/E2E coverage for streaming heartbeat and Next.js client handling.'
+      refs: ['ireal_demo/app/api/ai/calendar/route.ts']

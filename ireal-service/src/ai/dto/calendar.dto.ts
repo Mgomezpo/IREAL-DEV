@@ -72,3 +72,49 @@ export class CalendarRequestDto {
   @IsNumber()
   frequency?: number;
 }
+
+export class CalendarEntryDto {
+  @IsOptional()
+  @IsString()
+  id?: string;
+
+  @IsString()
+  title!: string;
+
+  @IsString()
+  channel!: string;
+
+  @IsString()
+  format!: string;
+
+  @IsString()
+  copy!: string;
+
+  @IsString()
+  script!: string;
+
+  @IsString()
+  targetAudience!: string;
+
+  @IsString()
+  date!: string;
+
+  @IsString()
+  time!: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  hashtags!: string[];
+}
+
+export class SaveCalendarEntriesDto {
+  @IsUUID()
+  calendarId!: string;
+
+  @IsOptional()
+  @IsUUID()
+  planId?: string;
+
+  @IsArray()
+  entries!: CalendarEntryDto[];
+}

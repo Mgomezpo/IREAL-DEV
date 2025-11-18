@@ -202,6 +202,41 @@
         };
         Relationships: [];
       };
+      publish_intents: {
+        Row: {
+          id: string;
+          calendar_id: string;
+          run_id: string | null;
+          user_id: string;
+          channel: string;
+          payload: Record<string, unknown> | null;
+          status: string;
+          error: Record<string, unknown> | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          calendar_id: string;
+          run_id?: string | null;
+          user_id: string;
+          channel: string;
+          payload?: Record<string, unknown> | null;
+          status: string;
+          error?: Record<string, unknown> | null;
+          created_at?: string;
+        };
+        Update: {
+          calendar_id?: string;
+          run_id?: string | null;
+          user_id?: string;
+          channel?: string;
+          payload?: Record<string, unknown> | null;
+          status?: string;
+          error?: Record<string, unknown> | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

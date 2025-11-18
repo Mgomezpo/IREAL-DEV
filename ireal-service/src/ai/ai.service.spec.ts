@@ -11,6 +11,9 @@ describe('AiService', () => {
   let runsTable: {
     insert: jest.Mock;
   };
+  let publishTable: {
+    insert: jest.Mock;
+  };
   let entriesTable: {
     insert: jest.Mock;
     delete: jest.Mock;
@@ -19,13 +22,12 @@ describe('AiService', () => {
     eq: jest.Mock;
   };
   let fromMock: jest.Mock;
-
+  const configValues: Record<string, string> = {
+    AI_API_KEY: 'test-key',
+    AI_PROVIDER: 'test-provider',
+  };
   const configMock = {
-    get: jest.fn((key: string) => {
-      if (key === 'AI_API_KEY') return 'test-key';
-      if (key === 'AI_PROVIDER') return 'test-provider';
-      return undefined;
-    }),
+    get: jest.fn((key: string) => configValues[key]),
   } as unknown as ConfigService;
 
   const metricsMock = {
@@ -39,8 +41,18 @@ describe('AiService', () => {
   };
 
   beforeEach(() => {
+    Object.assign(configValues, {
+      AI_API_KEY: 'test-key',
+      AI_PROVIDER: 'test-provider',
+    });
+    delete configValues.PUBLISH_SERVICE_ENABLED;
+    delete configValues.TIKTOK_APP_ID;
+    delete configValues.INSTAGRAM_APP_ID;
     jest.restoreAllMocks();
     runsTable = {
+      insert: jest.fn().mockResolvedValue({}),
+    };
+    publishTable = {
       insert: jest.fn().mockResolvedValue({}),
     };
     entriesTable = {
@@ -56,6 +68,9 @@ describe('AiService', () => {
       }
       if (table === 'calendar_entries') {
         return entriesTable;
+      }
+      if (table === 'publish_intents') {
+        return publishTable;
       }
       return {
         insert: jest.fn().mockResolvedValue({}),
@@ -338,5 +353,244 @@ describe('AiService', () => {
     expect(entriesTable.eq).toHaveBeenCalledWith('calendar_id', 'cal-1');
     expect(result.data?.entries).toHaveLength(1);
     expect(result.data?.entries[0]).toMatchObject({ title: 'Post 1' });
+  });
+
+  it('returns dry-run publish response when flag is off', async () => {
+    delete configValues.PUBLISH_SERVICE_ENABLED;
+
+    const result = await service.publish(
+      { calendarId: 'cal-1' },
+      { userId: 'user-1' },
+    );
+
+    expect(result.data).toMatchObject({
+      status: 'disabled',
+      reason: 'flag_off',
+      calendarId: 'cal-1',
+    });
+    expect(publishTable.insert).not.toHaveBeenCalled();
+  });
+
+  it('publishes (dry-run) when flag is on with supported channels', async () => {
+    configValues.PUBLISH_SERVICE_ENABLED = 'true';
+    configValues.TIKTOK_APP_ID = 'tok';
+    service = new AiService(
+      configMock,
+      metricsMock,
+      supabaseMock as SupabaseService,
+    );
+    jest
+      .spyOn(
+        service as unknown as {
+          fetchExistingEntries: () => Promise<
+            Array<{
+              title: string;
+              channel: string;
+              format: string;
+              copy: string;
+              script: string;
+              targetAudience: string;
+              date: string;
+              time: string;
+              hashtags: string[];
+            }>
+          >;
+        },
+        'fetchExistingEntries',
+      )
+      .mockResolvedValue([
+        {
+          title: 'Post',
+          channel: 'tiktok',
+          format: 'post',
+          copy: '',
+          script: '',
+          targetAudience: '',
+          date: '2025-11-01',
+          time: '09:00',
+          hashtags: [],
+        },
+      ]);
+
+    const result = await service.publish(
+      { calendarId: 'cal-1', runId: 'run-1' },
+      { userId: 'user-1' },
+    );
+
+    expect(result.data).toMatchObject({
+      status: 'dry_run',
+      channels: ['tiktok'],
+      entries: 1,
+      calendarId: 'cal-1',
+      runId: 'run-1',
+    });
+    expect(publishTable.insert).toHaveBeenCalled();
+  });
+
+  it('throws on unsupported channel', async () => {
+    configValues.PUBLISH_SERVICE_ENABLED = 'true';
+    configValues.TIKTOK_APP_ID = 'tok';
+    service = new AiService(
+      configMock,
+      metricsMock,
+      supabaseMock as SupabaseService,
+    );
+    jest
+      .spyOn(
+        service as unknown as {
+          fetchExistingEntries: () => Promise<Array<{ channel: string }>>;
+        },
+        'fetchExistingEntries',
+      )
+      .mockResolvedValue([{ channel: 'youtube' }]);
+
+    await expect(
+      service.publish({ calendarId: 'cal-1' }, { userId: 'user-1' }),
+    ).rejects.toBeInstanceOf(ApiHttpException);
+  });
+
+  it('throws when channel auth is missing', async () => {
+    configValues.PUBLISH_SERVICE_ENABLED = 'true';
+    delete configValues.TIKTOK_APP_ID;
+    service = new AiService(
+      configMock,
+      metricsMock,
+      supabaseMock as SupabaseService,
+    );
+    jest
+      .spyOn(
+        service as unknown as {
+          fetchExistingEntries: () => Promise<Array<{ channel: string }>>;
+        },
+        'fetchExistingEntries',
+      )
+      .mockResolvedValue([{ channel: 'tiktok' }]);
+
+    await expect(
+      service.publish({ calendarId: 'cal-1' }, { userId: 'user-1' }),
+    ).rejects.toBeInstanceOf(ApiHttpException);
+  });
+
+  it('returns disabled export when flag is off', async () => {
+    delete configValues.PUBLISH_SERVICE_ENABLED;
+
+    const result = await service.exportCalendar(
+      { calendarId: 'cal-1', format: 'json' as never },
+      { userId: 'user-1' },
+    );
+
+    expect(result.data).toMatchObject({
+      status: 'disabled',
+      calendarId: 'cal-1',
+    });
+  });
+
+  it('returns export entries when flag is on (json)', async () => {
+    configValues.PUBLISH_SERVICE_ENABLED = 'true';
+    configValues.TIKTOK_APP_ID = 'tok';
+    service = new AiService(
+      configMock,
+      metricsMock,
+      supabaseMock as SupabaseService,
+    );
+    jest
+      .spyOn(
+        service as unknown as {
+          fetchExistingEntries: () => Promise<
+            Array<{
+              title: string;
+              channel: string;
+              format: string;
+              copy: string;
+              script: string;
+              targetAudience: string;
+              date: string;
+              time: string;
+              hashtags: string[];
+            }>
+          >;
+        },
+        'fetchExistingEntries',
+      )
+      .mockResolvedValue([
+        {
+          title: 'Post',
+          channel: 'tiktok',
+          format: 'post',
+          copy: '',
+          script: '',
+          targetAudience: '',
+          date: '2025-11-01',
+          time: '09:00',
+          hashtags: [],
+        },
+      ]);
+
+    const result = await service.exportCalendar(
+      { calendarId: 'cal-1' },
+      { userId: 'user-1' },
+    );
+
+    expect(result.data).toMatchObject({
+      status: 'ok',
+      calendarId: 'cal-1',
+      format: 'json',
+    });
+    expect(result.data?.entries).toHaveLength(1);
+  });
+
+  it('returns csv when requested', async () => {
+    configValues.PUBLISH_SERVICE_ENABLED = 'true';
+    configValues.TIKTOK_APP_ID = 'tok';
+    service = new AiService(
+      configMock,
+      metricsMock,
+      supabaseMock as SupabaseService,
+    );
+    jest
+      .spyOn(
+        service as unknown as {
+          fetchExistingEntries: () => Promise<
+            Array<{
+              title: string;
+              channel: string;
+              format: string;
+              copy: string;
+              script: string;
+              targetAudience: string;
+              date: string;
+              time: string;
+              hashtags: string[];
+            }>
+          >;
+        },
+        'fetchExistingEntries',
+      )
+      .mockResolvedValue([
+        {
+          title: 'Post',
+          channel: 'tiktok',
+          format: 'post',
+          copy: '',
+          script: '',
+          targetAudience: '',
+          date: '2025-11-01',
+          time: '09:00',
+          hashtags: ['tag'],
+        },
+      ]);
+
+    const result = await service.exportCalendar(
+      { calendarId: 'cal-1', format: 'csv' as never },
+      { userId: 'user-1' },
+    );
+
+    expect(result.data).toMatchObject({
+      status: 'ok',
+      calendarId: 'cal-1',
+      format: 'csv',
+    });
+    expect(result.data?.csv).toContain('title,channel');
+    expect(result.data?.csv).toContain('Post');
   });
 });

@@ -153,3 +153,14 @@ CREATE POLICY "Users can update their own calendar entries"
 CREATE POLICY "Users can delete their own calendar entries"
   ON calendar_entries FOR DELETE
   USING (auth.uid() = user_id);
+
+-- RLS Policies for PUBLISH_INTENTS
+ALTER TABLE publish_intents ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own publish intents"
+  ON publish_intents FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own publish intents"
+  ON publish_intents FOR INSERT
+  WITH CHECK (auth.uid() = user_id);

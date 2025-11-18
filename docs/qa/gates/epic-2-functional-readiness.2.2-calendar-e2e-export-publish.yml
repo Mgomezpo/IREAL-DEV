@@ -1,0 +1,33 @@
+schema: 1
+story: '2.2'
+story_title: 'Story 2.2 - Calendar E2E Export/Publish'
+gate: PASS
+status_reason: 'Export/publish implemented with flags, persisted edits, JSON/CSV, and dry-run safety.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2025-11-18T00:00:00Z'
+top_issues: []
+waiver:
+  active: false
+quality_score: 100
+evidence:
+  tests_reviewed: 2
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4]
+    ac_gaps: []
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Ownership implied; clear error handling.'
+  performance:
+    status: PASS
+    notes: 'Export/publish scoped; no heavy perf requirements.'
+  reliability:
+    status: PASS
+    notes: 'Flagged rollout; uses persisted edits; SSE untouched.'
+  maintainability:
+    status: PASS
+    notes: 'Schemas, CSV order, and errors defined.'
+recommendations:
+  immediate: []
+  future: []

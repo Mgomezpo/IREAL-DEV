@@ -1,0 +1,33 @@
+schema: 1
+story: '2.1'
+story_title: 'Story 2.1 - Social Channel Plumbing'
+gate: PASS
+status_reason: 'Story ready for dev: enums, endpoints, flags, error codes, and data table defined.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2025-11-17T00:00:00Z'
+top_issues: []
+waiver:
+  active: false
+quality_score: 100
+evidence:
+  tests_reviewed: 2
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5]
+    ac_gaps: []
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Ownership/validation and clear error codes.'
+  performance:
+    status: PASS
+    notes: 'Dry-run only; no perf risk.'
+  reliability:
+    status: PASS
+    notes: 'Flagged rollout; deterministic legacy fallback.'
+  maintainability:
+    status: PASS
+    notes: 'Interfaces/data table defined; tests planned.'
+recommendations:
+  immediate: []
+  future: []

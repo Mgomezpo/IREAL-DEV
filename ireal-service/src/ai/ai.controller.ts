@@ -24,6 +24,8 @@ import { PlanChatDto } from './dto/plan-chat.dto';
 import { NudgeDto } from './dto/nudge.dto';
 import { CalendarRequestDto, SaveCalendarEntriesDto } from './dto/calendar.dto';
 import { PlanAssistDto } from './dto/plan-assist.dto';
+import { PublishRequestDto } from './dto/publish.dto';
+import { ExportCalendarDto } from './dto/export-calendar.dto';
 
 @Controller('v1/ai')
 @UseGuards(RateLimitGuard)
@@ -85,5 +87,44 @@ export class AiController {
     @Headers('x-request-id') requestId?: string,
   ): Promise<ApiEnvelope<{ calendarId: string; entries: unknown[] }>> {
     return this.aiService.getCalendar(calendarId, { userId, requestId });
+  }
+
+  @Post('publish')
+  @RateLimit('ai')
+  publish(
+    @Body() dto: PublishRequestDto,
+    @Headers('x-user-id') userId?: string,
+    @Headers('x-request-id') requestId?: string,
+  ): Promise<
+    ApiEnvelope<{
+      intentId: string;
+      calendarId: string;
+      runId: string | null;
+      channels: string[];
+      entries: number;
+      status: string;
+      reason?: string;
+    }>
+  > {
+    return this.aiService.publish(dto, { userId, requestId });
+  }
+
+  @Post('calendar/export')
+  @RateLimit('ai')
+  exportCalendar(
+    @Body() dto: ExportCalendarDto,
+    @Headers('x-user-id') userId?: string,
+    @Headers('x-request-id') requestId?: string,
+  ): Promise<
+    ApiEnvelope<{
+      calendarId: string;
+      runId: string | null;
+      format: string;
+      status: string;
+      entries?: unknown[];
+      csv?: string;
+    }>
+  > {
+    return this.aiService.exportCalendar(dto, { userId, requestId });
   }
 }

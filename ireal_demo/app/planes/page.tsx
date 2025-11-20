@@ -5,9 +5,11 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Plus, FileText, Search, Filter, MoreVertical, Calendar } from "lucide-react"
+import { useNavigationState } from "@/hooks/useNavigationState"
 
 export default function Planes() {
   const router = useRouter()
+  const { registerState } = useNavigationState()
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [plans, setPlans] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -18,6 +20,10 @@ export default function Planes() {
   useEffect(() => {
     fetchPlans()
   }, [])
+
+  useEffect(() => {
+    registerState({ planCount: plans.length })
+  }, [registerState, plans.length])
 
   const fetchPlans = async () => {
     try {

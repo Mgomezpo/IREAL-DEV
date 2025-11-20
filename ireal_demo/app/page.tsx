@@ -5,6 +5,8 @@ import { Sparkles } from "lucide-react"
 import { useState } from "react"
 import Image from "next/image"
 
+const OFF_WHITE = "#fdf5eb"
+
 export default function Landing() {
   const router = useRouter()
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -24,26 +26,22 @@ export default function Landing() {
         <Sparkles className="h-6 w-6 text-white/60" aria-hidden="true" />
       </div>
 
-      {/* Borde interno tipo cuero */}
       <div className="absolute inset-4 rounded-2xl ring-1 ring-white/5" />
 
-      {/* Contenido principal */}
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6">
-        <div className="mb-6 text-center">
-          <div className="relative flex items-center justify-center mb-4">
-            {/* SVG Logo */}
-            <Image src="/logo-ireal.svg" alt="IREAL Logo" width={120} height={120} className="opacity-90" />
-          </div>
-          <div className="relative">
-            {/* Sombra del logo */}
-            <h1 className="font-display text-7xl md:text-9xl font-bold text-black/20 absolute top-1 left-1">IREAL</h1>
-            {/* Logo principal */}
-            <h1 className="font-display text-7xl md:text-9xl font-bold text-white/90 relative tracking-wider">IREAL</h1>
-          </div>
+        <div className="mb-12 text-center">
+          <Image
+            src="/brand/logo-full-offwhite.svg"
+            alt="IREAL"
+            width={260}
+            height={110}
+            priority
+            className="opacity-95 drop-shadow-[0_15px_40px_rgba(0,0,0,0.65)]"
+          />
         </div>
 
         <div className="mb-16 text-center max-w-2xl">
-          <p className="text-white/80 text-xl md:text-2xl font-sans leading-relaxed">
+          <p className="text-xl md:text-2xl font-sans leading-relaxed" style={{ color: OFF_WHITE }}>
             El workspace mágico para Magos del Contenido
           </p>
         </div>

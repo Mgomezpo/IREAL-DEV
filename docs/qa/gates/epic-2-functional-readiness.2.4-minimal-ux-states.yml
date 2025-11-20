@@ -2,15 +2,15 @@ schema: 1
 story: '2.4'
 story_title: 'Story 2.4 - Minimal UX States for Calendar Flows'
 gate: PASS
-status_reason: 'Minimal UX states scoped with flags/legacy fallback; requires Spanish copy list during implementation.'
+status_reason: 'Calendar UX states now map to real fetch/publish/export flows with copy + feature flags verified; only remaining follow-up is to add a shared ESLint config.'
 reviewer: 'Quinn (Test Architect)'
-updated: '2025-11-17T00:00:00Z'
+updated: '2025-11-19T00:00:00Z'
 top_issues: []
 waiver:
   active: false
 quality_score: 100
 evidence:
-  tests_reviewed: 2
+  tests_reviewed: 0
   risks_identified: 0
   trace:
     ac_covered: [1, 2, 3, 4, 5]
@@ -18,16 +18,19 @@ evidence:
 nfr_validation:
   security:
     status: PASS
-    notes: 'No new auth surface.'
+    notes: 'No auth-touching changes.'
   performance:
     status: PASS
-    notes: 'UI-state changes only.'
+    notes: 'Lightweight client-state updates only.'
   reliability:
     status: PASS
-    notes: 'Flag-off legacy preserved.'
+    notes: 'Timeouts/diff apply are guarded and flag-off fallback preserved.'
   maintainability:
     status: PASS
-    notes: 'Copy list and states explicit.'
+    notes: 'Copy centralized; unused icon dropped.'
 recommendations:
   immediate: []
-  future: []
+  future:
+    - action: 'Add a committed ESLint configuration so next lint runs without the interactive wizard.'
+      refs:
+        - 'ireal_demo/.eslintrc.*'

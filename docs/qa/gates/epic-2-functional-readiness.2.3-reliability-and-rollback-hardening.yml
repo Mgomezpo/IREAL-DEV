@@ -2,9 +2,9 @@ schema: 1
 story: '2.3'
 story_title: 'Story 2.3 - Reliability & Rollback Hardening'
 gate: PASS
-status_reason: 'Ops, alerts, log fields, thresholds, and playbook defined; ready for dev.'
+status_reason: 'Calendar SSE audit logging added; publish/export logging intact; thresholds and rollback/playbook documented; tasks closed and ready for QA sign-off.'
 reviewer: 'Quinn (Test Architect)'
-updated: '2025-11-17T00:00:00Z'
+updated: '2025-11-18T00:00:00Z'
 top_issues: []
 waiver:
   active: false

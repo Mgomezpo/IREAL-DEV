@@ -1,0 +1,30 @@
+"use client"
+
+import { Suspense } from "react"
+import { usePathname } from "next/navigation"
+import { NavigationShell } from "@/components/navigation-shell"
+import { NavigationStateProvider } from "@/hooks/useNavigationState"
+import { isIdeaPlanStabilityEnabled } from "@/lib/feature-flags"
+
+function NavigationRootInner({ children }: { children: React.ReactNode }) {
+  const enabled = isIdeaPlanStabilityEnabled()
+  const pathname = usePathname()
+  const disableShellRoutes = ["/"]
+  const shouldUseShell = enabled && !disableShellRoutes.includes(pathname ?? "")
+  if (!shouldUseShell) {
+    return <>{children}</>
+  }
+  return (
+    <NavigationStateProvider enabled={enabled}>
+      <NavigationShell>{children}</NavigationShell>
+    </NavigationStateProvider>
+  )
+}
+
+export function NavigationRoot({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[var(--surface)]" />}>
+      <NavigationRootInner>{children}</NavigationRootInner>
+    </Suspense>
+  )
+}

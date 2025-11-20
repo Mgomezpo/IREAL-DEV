@@ -1,6 +1,7 @@
 import type React from "react"
 import { Playfair_Display, Inter } from "next/font/google"
 import "./globals.css"
+import { NavigationRoot } from "@/components/navigation-root"
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -29,7 +30,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className={`${playfair.variable} ${inter.variable} antialiased`}>
-      <body className="bg-[var(--surface)] text-[var(--ink)]">{children}</body>
+      <body className="bg-[var(--surface)] text-[var(--ink)]">
+        <NavigationRoot>{children}</NavigationRoot>
+      </body>
     </html>
   )
 }

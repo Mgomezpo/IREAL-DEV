@@ -2,10 +2,12 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Plus } from "lucide-react"
 import { NudgeBubble } from "@/components/nudge-bubble"
+import { PlanConnectorModal } from "@/components/plan-connector-modal"
+import { isIdeaPlanStabilityEnabled } from "@/lib/feature-flags"
 
 function hashString(str: string): string {
   let hash = 0
@@ -54,17 +56,38 @@ function hasActionVerb(text: string): boolean {
   return actionVerbs.some((verb) => lowerText.includes(verb))
 }
 
+const DRAFT_STORAGE_KEY = "ireal:idea-draft"
+
 export default function NewIdea() {
   const router = useRouter()
+  const ideaPlanEnabled = isIdeaPlanStabilityEnabled()
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [ideaId, setIdeaId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [planConnectorOpen, setPlanConnectorOpen] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const titleCreatedRef = useRef(false)
+  const persistDraft = useCallback(
+    (nextTitle: string, nextContent: string) => {
+      if (!ideaPlanEnabled || typeof window === "undefined") return
+      try {
+        const payload = JSON.stringify({ title: nextTitle, content: nextContent, updatedAt: Date.now() })
+        window.sessionStorage.setItem(DRAFT_STORAGE_KEY, payload)
+        console.info("[ideas] Draft persisted", { length: nextContent.length })
+      } catch (err) {
+        console.warn("[ideas] Unable to persist draft", err)
+      }
+    },
+    [ideaPlanEnabled],
+  )
+  const clearDraft = useCallback(() => {
+    if (!ideaPlanEnabled || typeof window === "undefined") return
+    window.sessionStorage.removeItem(DRAFT_STORAGE_KEY)
+  }, [ideaPlanEnabled])
 
   const [currentNudge, setCurrentNudge] = useState<string | null>(null)
   const [nudgeCount, setNudgeCount] = useState(0)
@@ -76,6 +99,23 @@ export default function NewIdea() {
   const nudgeAbortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
+    if (ideaPlanEnabled && typeof window !== "undefined") {
+      try {
+        const raw = window.sessionStorage.getItem(DRAFT_STORAGE_KEY)
+        if (raw) {
+          const draft = JSON.parse(raw) as { title?: string; content?: string }
+          if (draft.title) setTitle(draft.title)
+          if (draft.content) {
+            setContent(draft.content)
+            if (contentRef.current) {
+              contentRef.current.textContent = draft.content
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[ideas] Unable to load draft", err)
+      }
+    }
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current)
@@ -90,7 +130,7 @@ export default function NewIdea() {
         nudgeAbortControllerRef.current.abort()
       }
     }
-  }, [])
+  }, [ideaPlanEnabled])
 
   const checkForNudge = async () => {
     if (!contentRef.current) return
@@ -118,7 +158,7 @@ export default function NewIdea() {
     const titleWordCount = countWords(title)
 
     // Check heuristics:
-    // 1. Minimum length: ≥12 words in paragraph OR title not empty + ≥6 words
+    // 1. Minimum length: >=12 words in paragraph OR title not empty + >=6 words
     const hasMinLength = wordCount >= 12 || (title.trim() && wordCount >= 6)
 
     // 2. Ends with punctuation
@@ -224,6 +264,7 @@ export default function NewIdea() {
 
   const handleTitleChange = async (newTitle: string) => {
     setTitle(newTitle)
+    persistDraft(newTitle, content)
 
     // Create idea automatically when user types a title
     if (!titleCreatedRef.current && newTitle.trim() && !ideaId) {
@@ -258,6 +299,7 @@ export default function NewIdea() {
 
   const handleContentChange = (newContent: string) => {
     setContent(newContent)
+    persistDraft(title, newContent)
 
     isTypingRef.current = true
 
@@ -303,12 +345,15 @@ export default function NewIdea() {
       const response = await fetch(`/api/ideas/${ideaId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: titleToSave, description: contentToSave }),
+        body: JSON.stringify({ title: titleToSave, content: contentToSave }),
       })
 
       if (response.ok) {
         setLastSaved(new Date())
         console.log("[v0] Idea auto-saved successfully")
+        if (contentToSave.trim().length > 0) {
+          clearDraft()
+        }
       }
     } catch (error) {
       console.error("[v0] Error saving idea:", error)
@@ -337,12 +382,14 @@ export default function NewIdea() {
   }
 
   const openAttachToPlanModal = () => {
-    console.log("[v0] Opening attach to plan modal")
-    // TODO: Implement modal
+    if (!ideaPlanEnabled) return
+    console.info("[ideas] Opening plan connector from new idea", { ideaId })
+    setPlanConnectorOpen(true)
   }
 
   return (
-    <div className={`min-h-screen bg-[var(--surface)] ${isTransitioning ? "notebook-exit" : "notebook-enter"}`}>
+    <>
+      <div className={`min-h-screen bg-[var(--surface)] ${isTransitioning ? "notebook-exit" : "notebook-enter"}`}>
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div className="flex items-center justify-between mb-8">
           <button
@@ -368,7 +415,7 @@ export default function NewIdea() {
           type="text"
           value={title}
           onChange={(e) => handleTitleChange(e.target.value)}
-          placeholder="Escribe un título…"
+          placeholder="Escribe un título..."
           className="w-full bg-transparent border-none outline-none text-4xl md:text-5xl font-semibold font-display tracking-tight text-black placeholder-black/30 mb-8 focus:ring-0"
           autoFocus
         />
@@ -422,5 +469,18 @@ export default function NewIdea() {
         </div>
       </div>
     </div>
+
+      {ideaPlanEnabled && (
+        <PlanConnectorModal
+          ideaId={ideaId}
+          ideaTitle={title || "Idea sin título"}
+          open={planConnectorOpen && Boolean(ideaId)}
+          onClose={() => setPlanConnectorOpen(false)}
+          onAttached={() => console.info("[ideas] Plan connected from new idea", { ideaId })}
+        />
+      )}
+    </>
   )
 }
+
+

@@ -12,6 +12,9 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  Calendar as CalendarIcon,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import { PlanConnectorModal } from "@/components/plan-connector-modal"
 import { useNavigationState } from "@/hooks/useNavigationState"
@@ -19,12 +22,14 @@ import { useIdeasData } from "@/hooks/useIdeasData"
 import type { Idea, IdeasGroup } from "../types"
 
 function filterIdeasByCalendar(ideas: Idea[], month: Date, day?: number) {
+  // Si no se ha seleccionado un día específico, no filtramos por calendario para mostrar todas las ideas.
+  if (!day) return ideas
+
   const key = getMonthKey(month)
   return ideas.filter((idea) => {
     const created = new Date(idea.created_at || idea.updated_at)
     if (getMonthKey(created) !== key) return false
-    if (day && created.getDate() !== day) return false
-    return true
+    return created.getDate() === day
   })
 }
 
@@ -138,6 +143,7 @@ interface CalendarFilterProps {
 function MiniCalendarFilter({ monthDate, selectedDay, onMonthChange, onDayChange }: CalendarFilterProps) {
   const daysInMonth = useMemo(() => new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate(), [monthDate])
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
+  const [open, setOpen] = useState(false)
 
   const shiftMonth = (delta: number) => {
     const next = new Date(monthDate)
@@ -147,40 +153,55 @@ function MiniCalendarFilter({ monthDate, selectedDay, onMonthChange, onDayChange
   }
 
   return (
-    <div className="rounded-xl border border-black/10 bg-white/70 p-4 text-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <button onClick={() => shiftMonth(-1)} className="rounded-md border border-black/10 px-2 py-1 text-black/60">
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <span className="font-semibold text-black">
-          {monthDate.toLocaleDateString("es-ES", { month: "long", year: "numeric" })}
-        </span>
-        <button onClick={() => shiftMonth(1)} className="rounded-md border border-black/10 px-2 py-1 text-black/60">
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {days.map((day) => {
-          const isSelected = selectedDay === day
-          return (
-            <button
-              key={day}
-              onClick={() => onDayChange(isSelected ? undefined : day)}
-              className={`rounded-md py-1 text-xs ${
-                isSelected ? "bg-[var(--accent-600)] text-white" : "bg-white text-black/70"
-              }`}
-            >
-              {day}
-            </button>
-          )
-        })}
-      </div>
+    <div className="rounded-xl border border-black/10 bg-white/70 p-3 text-sm">
       <button
-        onClick={() => onDayChange(undefined)}
-        className="mt-2 w-full rounded-md border border-black/10 px-2 py-1 text-xs text-black/60 hover:bg-black/5"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between rounded-md border border-black/10 bg-white/60 px-3 py-2 text-left font-semibold text-black hover:bg-white"
       >
-        Limpiar día
+        <div className="flex items-center gap-2">
+          <CalendarIcon className="h-4 w-4" />
+          <span>{monthDate.toLocaleDateString("es-ES", { month: "long", year: "numeric" })}</span>
+        </div>
+        {open ? <ChevronUp className="h-4 w-4 text-black/50" /> : <ChevronDown className="h-4 w-4 text-black/50" />}
       </button>
+
+      {open && (
+        <div className="mt-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <button onClick={() => shiftMonth(-1)} className="rounded-md border border-black/10 px-2 py-1 text-black/60">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="font-semibold text-black">
+              {monthDate.toLocaleDateString("es-ES", { month: "long", year: "numeric" })}
+            </span>
+            <button onClick={() => shiftMonth(1)} className="rounded-md border border-black/10 px-2 py-1 text-black/60">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {days.map((day) => {
+              const isSelected = selectedDay === day
+              return (
+                <button
+                  key={day}
+                  onClick={() => onDayChange(isSelected ? undefined : day)}
+                  className={`rounded-md py-1 text-xs ${
+                    isSelected ? "bg-[var(--accent-600)] text-white" : "bg-white text-black/70"
+                  }`}
+                >
+                  {day}
+                </button>
+              )
+            })}
+          </div>
+          <button
+            onClick={() => onDayChange(undefined)}
+            className="w-full rounded-md border border-black/10 px-2 py-1 text-xs text-black/60 hover:bg-black/5"
+          >
+            Limpiar día
+          </button>
+        </div>
+      )}
     </div>
   )
 }

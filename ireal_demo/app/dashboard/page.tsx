@@ -57,14 +57,14 @@ export default function DashboardPage() {
   const ideaPlanEnabled = isIdeaPlanStabilityEnabled()
 
   const { ideas: liveIdeas, stats: ideaStats } = useIdeasData()
-  const ideaSource = ideaPlanEnabled && liveIdeas.length ? liveIdeas : mockIdeas
+  const ideaSource = ideaPlanEnabled ? liveIdeas : mockIdeas
   const formattedIdeas = useMemo(
     () =>
       ideaSource.slice(0, 3).map((idea: any) => ({
         id: idea.id,
         title: idea.title,
         meta: idea.created_at ? new Date(idea.created_at).toLocaleDateString("es-ES") : idea.meta ?? "",
-        href: idea.href ?? `/ideas/${idea.id}`, 
+        href: idea.href ?? `/ideas/${idea.id}`,
       })),
     [ideaSource],
   )
@@ -74,7 +74,7 @@ export default function DashboardPage() {
       mockPlans.map((plan) => ({
         id: plan.id,
         title: plan.title,
-                meta: `${plan.status} · ${plan.progress}%`,
+        meta: `${plan.status} · ${plan.progress}%`,
         href: plan.href,
       })),
     [],
@@ -89,9 +89,7 @@ export default function DashboardPage() {
     router.push(path)
   }
 
-  const handleNewIdea = () => {
-    handleNavigation("/ideas/new")
-  }
+  const handleNewIdea = () => handleNavigation("/ideas/new")
 
   const mainContent = (
     <div className="max-w-7xl mx-auto px-6 py-10">
@@ -196,52 +194,12 @@ function LegacyDashboard({
   handleNavigation: (path: string) => void
   mainContent: React.ReactNode
 }) {
-  return (
-    <div className={`min-h-screen bg-[var(--surface)] ${isTransitioning ? "notebook-exit" : "notebook-enter"}`}>
-      <div className="hidden lg:block">
-        <SidebarNotebook activeRoute="/dashboard" onNavigate={handleNavigation} />
-      </div>
+  const BORDER = "#e7d9c6"
+  const SOFT_BG = "#fdf5eb"
+  const ACCENT_TEXT = "#1e130b"
+  const MUTED_TEXT = "#5c4a3d"
 
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-72 bg-[#0E0E0E]">
-            <div className="flex items-center justify-between border-b border-white/10 p-4">
-              <Image src="/brand/logo-full.svg" alt="IREAL" width={120} height={30} priority />
-              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-white/70 hover:text-white">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <SidebarNotebook
-              activeRoute="/dashboard"
-              onNavigate={(path) => {
-                setIsMobileMenuOpen(false)
-                handleNavigation(path)
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      <TopbarMobile onMenu={() => setIsMobileMenuOpen(true)} onSettings={() => handleNavigation("/configuracion")} />
-
-      <main className="lg:ml-72 min-h-screen" role="main">
-        {mainContent}
-      </main>
-    </div>
-  )
-}
-
-function SidebarNotebook({ activeRoute, onNavigate }: { activeRoute: string; onNavigate: (path: string) => void }) {
-  const supabase = createClient()
-  const router = useRouter()
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push("/")
-  }
-
-  const menuItems = [
+  const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
     { icon: Feather, label: "Ideas", path: "/ideas" },
     { icon: FileText, label: "Planes", path: "/planes" },
@@ -250,76 +208,93 @@ function SidebarNotebook({ activeRoute, onNavigate }: { activeRoute: string; onN
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
   ]
 
-  return (
-    <nav className="fixed left-0 top-0 z-30 flex h-screen w-72 flex-col bg-[#0E0E0E] text-white" role="navigation">
-      <div className="border-b border-white/10 p-6">
-        <Image src="/brand/logo-full.svg" alt="IREAL" width={128} height={32} priority />
-      </div>
-
-      <div className="flex-1 py-6">
-        {menuItems.map((item) => {
-          const Icon = item.icon
-          const isActive = activeRoute === item.path
-          return (
-            <button
-              key={item.path}
-              onClick={() => onNavigate(item.path)}
-              className={`relative flex w-full items-center gap-3 px-6 py-3 text-left transition-colors ${
-                isActive ? "text-white" : "text-white/70 hover:text-white hover:bg-white/5"
-              }`}
-              aria-current={isActive ? "page" : undefined}
-            >
-              {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/20" />}
-              <Icon className="h-5 w-5" aria-hidden="true" />
-              <span className="font-medium">{item.label}</span>
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="space-y-2 border-t border-white/10 p-6 text-sm text-white/60">
+  const renderNav = (onNavigate?: () => void) =>
+    navItems.map((item) => {
+      const Icon = item.icon
+      return (
         <button
-          onClick={() => onNavigate("/configuracion")}
-          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-white/70 transition-colors hover:text-white hover:bg-white/5"
+          key={item.path}
+          onClick={() => {
+            handleNavigation(item.path)
+            onNavigate?.()
+          }}
+          className="w-full flex items-center gap-3 px-5 py-3 text-left transition-colors rounded-lg text-[#5c4a3d] hover:text-[#1e130b] hover:bg-[#f9efe0]"
         >
-          <div className="flex items-center gap-3">
-            <Settings className="h-5 w-5" />
-            <span>Configuración</span>
-          </div>
-          <ChevronRight className="h-4 w-4" />
+          <Icon className="h-4 w-4" aria-hidden="true" />
+          <span className="font-medium">{item.label}</span>
         </button>
+      )
+    })
+
+  return (
+    <div className={`min-h-screen bg-[var(--surface)] ${isTransitioning ? "notebook-exit" : "notebook-enter"}`}>
+      <div
+        className="hidden lg:flex fixed left-0 top-0 bottom-0 w-72 flex-col border-r"
+        style={{ borderColor: BORDER, backgroundColor: SOFT_BG, color: ACCENT_TEXT }}
+      >
         <button
-          onClick={handleLogout}
-          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-white/70 transition-colors hover:text-white hover:bg-white/5"
+          onClick={() => handleNavigation("/dashboard")}
+          className="flex items-center gap-3 p-6 focus:outline-none focus-visible:ring-2"
+          style={{ color: ACCENT_TEXT, borderColor: BORDER }}
         >
-          <div className="flex items-center gap-3">
-            <LogOut className="h-5 w-5" />
-            <span>Salir</span>
-          </div>
+          <Image src="/brand/logo-full.svg" alt="IREAL" width={136} height={32} priority />
+        </button>
+
+        <div className="flex-1 px-4 space-y-1 text-sm" style={{ color: MUTED_TEXT }}>
+          {renderNav()}
+        </div>
+
+        <div className="px-6 py-5 border-t text-sm" style={{ borderColor: BORDER, color: MUTED_TEXT }}>
+          <button
+            onClick={() => handleNavigation("/configuracion")}
+            className="flex items-center gap-2 hover:text-[#1e130b] transition-colors"
+          >
+            <Settings className="h-4 w-4" />
+            Configuración
+          </button>
+        </div>
+      </div>
+
+      <div
+        className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 backdrop-blur"
+        style={{ borderBottom: `1px solid ${BORDER}`, backgroundColor: `${SOFT_BG}E6` }}
+      >
+        <button
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="rounded-md p-2 focus:outline-none focus-visible:ring-2"
+          style={{ color: MUTED_TEXT }}
+          aria-label="Abrir menú"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <Image src="/brand/logo-full.svg" alt="IREAL" width={120} height={30} priority />
+        <button
+          onClick={() => handleNavigation("/configuracion")}
+          className="rounded-md p-2 focus:outline-none focus-visible:ring-2"
+          style={{ color: MUTED_TEXT }}
+        >
+          <Settings className="h-5 w-5" />
         </button>
       </div>
-    </nav>
-  )
-}
 
-function TopbarMobile({ onMenu, onSettings }: { onMenu: () => void; onSettings: () => void }) {
-  return (
-    <div className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-white/95 px-4 py-3 lg:hidden">
-      <button
-        onClick={onMenu}
-        className="rounded-md p-2 text-black/70 hover:bg-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-black"
-        aria-label="Abrir menú"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
-      <Image src="/brand/logo-full.svg" alt="IREAL" width={110} height={28} priority />
-      <button
-        onClick={onSettings}
-        className="rounded-md p-2 text-black/70 hover:bg-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-black"
-        aria-label="Configuración"
-      >
-        <Settings className="h-5 w-5" />
-      </button>
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setIsMobileMenuOpen(false)} />
+          <div className="absolute left-0 top-0 h-full w-72 p-6 space-y-6" style={{ backgroundColor: SOFT_BG }}>
+            <div className="flex items-center justify-between">
+              <Image src="/brand/logo-full.svg" alt="IREAL" width={120} height={30} priority />
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2" style={{ color: MUTED_TEXT }}>
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-2 text-sm" style={{ color: MUTED_TEXT }}>
+              {renderNav(() => setIsMobileMenuOpen(false))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="lg:ml-72 min-h-screen">{mainContent}</div>
     </div>
   )
 }
@@ -353,7 +328,7 @@ interface CardListProps {
   type: "ideas" | "plans"
 }
 
-function CardList({ icon: Icon, title, items, onViewAll, emptyState, type }: CardListProps) {
+function CardList({ icon: Icon, title, items, onViewAll, emptyState }: CardListProps) {
   return (
     <div className="rounded-xl border border-[#E5E5E5] bg-white/40 p-5 hover:shadow-sm transition-shadow">
       <div className="mb-4 flex items-center justify-between">
@@ -375,7 +350,9 @@ function CardList({ icon: Icon, title, items, onViewAll, emptyState, type }: Car
                 className="w-full rounded-lg border border-transparent bg-white/60 px-3 py-2 text-left transition hover:border-[var(--accent-600)]/40 hover:bg-white"
               >
                 <p className="font-medium text-black">{item.title}</p>
-                <p className="text-sm text-black/60">{item.meta}</p>
+                <p a="" className="text-sm text-black/60">
+                  {item.meta}
+                </p>
               </button>
             </li>
           ))}
@@ -436,10 +413,3 @@ function SummaryStrip({
     </div>
   )
 }
-
-
-
-
-
-
-

@@ -10,28 +10,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const userId = await resolveUserIdForRateLimit(request)
 
-    try {
-      const response = await callService(SERVICE_PATH, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": userId,
-        },
-        body: JSON.stringify(body),
-      })
-
-      // If the upstream service answered but with error, fall back to local generation
-      if (!response.ok) throw new Error(`Upstream AI failed with status ${response.status}`)
-
-      const payload = await response.json()
-      return NextResponse.json(payload, { status: response.status })
-    } catch (err) {
-      console.error("[v0] Plans AI service unavailable, using fallback generator", err)
-
-      // Fallback: generate an on-box plan doc so the flow does not break
+    const buildFallbackDoc = () => {
       const nombre = body.nombre || "Creador"
       const fecha = new Date().toISOString().slice(0, 10)
-      const doc = {
+      return {
         ruta_seleccionada: "EDUCACION",
         explicacion_ruta: "Ruta generada en fallback local. Se prioriza educacion en video corto.",
         metadata: { nombre, fecha },
@@ -71,8 +53,41 @@ export async function POST(request: NextRequest) {
           consejos_magicos: ["CTA claro", "Hook en 1s", "Subtitulos grandes"],
         },
       }
+    }
 
-      return NextResponse.json({ data: doc }, { status: 200 })
+    try {
+      const response = await callService(SERVICE_PATH, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": userId,
+        },
+        body: JSON.stringify(body),
+      })
+
+      // If the upstream service answered but with error, use fallback but surface metadata
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => "")
+        console.error("[v0] Plans AI upstream error", response.status, errorBody)
+        const doc = buildFallbackDoc()
+        return NextResponse.json({
+          data: doc,
+          meta: {
+            fallback: true,
+            upstreamStatus: response.status,
+            upstreamBody: errorBody,
+          },
+        })
+      }
+
+      const payload = await response.json()
+      return NextResponse.json(payload, { status: response.status })
+    } catch (err) {
+      console.error("[v0] Plans AI service unavailable, using fallback generator", err)
+
+      // Fallback: generate an on-box plan doc so the flow does not break
+      const doc = buildFallbackDoc()
+      return NextResponse.json({ data: doc, meta: { fallback: true, upstreamStatus: "unreachable" } }, { status: 200 })
     }
   } catch (error) {
     console.error("[v0] Plans AI API error:", error)

@@ -1,10 +1,11 @@
-﻿"use client"
+"use client"
 
 import type React from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Plus, FileText, Search, Filter, MoreVertical, Calendar, X } from "lucide-react"
 import { useNavigationState } from "@/hooks/useNavigationState"
+import { HardCard } from "@/components/ui/hard-card"
 
 type Plan = {
   id: string
@@ -137,12 +138,12 @@ export default function Planes() {
         </div>
 
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
-        <div className="flex items-center gap-3 flex-1">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/40" />
-            <input
-              type="text"
-              value={searchQuery}
+          <div className="flex items-center gap-3 flex-1">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/40" />
+              <input
+                type="text"
+                value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar plan..."
                 className="w-full rounded-lg border border-black/10 bg-white/70 py-3 pl-9 pr-4 text-sm text-black placeholder:text-black/40 focus:border-black focus:outline-none focus:ring-0"
@@ -173,7 +174,7 @@ export default function Planes() {
         ) : (
           <div className="space-y-4">
             {filteredPlans.map((plan) => (
-              <div key={plan.id} className="rounded-xl border border-[#E5E5E5] bg-white/60 p-5 hover:shadow-sm transition-shadow">
+              <HardCard key={plan.id} className="animate-fade-in-up">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
@@ -197,11 +198,11 @@ export default function Planes() {
                       Ver documento
                     </button>
                     <button className="p-2 hover:bg-black/5 rounded-lg transition-colors" title="Más opciones">
-                      <MoreVertical className="h-4 w-4 text-black/40" />
+                      <MoreVertical className="h-4 w-4 text-black/60" />
                     </button>
                   </div>
                 </div>
-              </div>
+              </HardCard>
             ))}
           </div>
         )}
@@ -219,9 +220,7 @@ export default function Planes() {
         />
       )}
 
-      {viewerPlan && (
-        <PlanViewer plan={viewerPlan} onClose={() => setViewerPlan(null)} />
-      )}
+      {viewerPlan && <PlanViewer plan={viewerPlan} onClose={() => setViewerPlan(null)} />}
     </div>
   )
 }
@@ -235,6 +234,9 @@ function CreatePlanModal({
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [progress, setProgress] = useState(0)
+  const [progressMessage, setProgressMessage] = useState("Preparando la magia...")
+  const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     nombre_cuenta: "",
@@ -246,15 +248,47 @@ function CreatePlanModal({
     tiempo: "",
   })
 
-  const toggleChannel = (channelId: string) => {
-    // canales eliminados; no-op
-    return channelId
-  }
+  useEffect(() => {
+    if (isSubmitting) {
+      setProgress(8)
+      setProgressMessage("Preparando la magia...")
+      if (progressTimer.current) clearInterval(progressTimer.current)
+      progressTimer.current = setInterval(() => {
+        setProgress((current) => {
+          if (current >= 92) return current
+          const bump = Math.random() * 6 + 2
+          return Math.min(92, Number((current + bump).toFixed(1)))
+        })
+      }, 900)
+    } else {
+      if (progressTimer.current) clearInterval(progressTimer.current)
+      progressTimer.current = null
+      setTimeout(() => setProgress(0), 300)
+      setProgressMessage("Preparando la magia...")
+    }
+
+    return () => {
+      if (progressTimer.current) clearInterval(progressTimer.current)
+    }
+  }, [isSubmitting])
+
+  useEffect(() => {
+    if (!isSubmitting) return
+    if (progress > 80) {
+      setProgressMessage("Puliendo detalles finales...")
+    } else if (progress > 55) {
+      setProgressMessage("Hilando ideas y rutas...")
+    } else if (progress > 25) {
+      setProgressMessage("Descifrando tu audiencia...")
+    }
+  }, [isSubmitting, progress])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
     setError(null)
+    setProgress(10)
+    setProgressMessage("Preparando la magia...")
 
     try {
       // 1) Generar plan con IA
@@ -274,6 +308,8 @@ function CreatePlanModal({
         body: JSON.stringify(aiPayload),
       })
 
+      setProgress(55)
+      setProgressMessage("Tejiendo el plan con IA...")
       const aiJson = await aiRes.json().catch(() => null)
       const aiDoc = aiJson?.data ?? aiJson ?? {}
 
@@ -307,7 +343,11 @@ function CreatePlanModal({
         }
       }
 
+      setProgress(92)
+      setProgressMessage("Guardando tu plan...")
       onSuccess(plan, aiDoc)
+      setProgress(100)
+      setProgressMessage("Listo. Desatando la magia final...")
     } catch (err) {
       console.error("[plans] Error creating plan with AI:", err)
       setError("No se pudo generar el plan con IA. Intenta de nuevo.")
@@ -318,8 +358,8 @@ function CreatePlanModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[var(--surface)] rounded-xl border border-[#E5E5E5] w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <div className="p-6 space-y-4">
+      <div className="hard-shadow animate-fade-in-up max-w-3xl w-full bg-[var(--surface)]">
+        <div className="relative p-6 space-y-4">
           <h2 className="font-display text-xl font-semibold text-black">Crear nuevo plan con IA</h2>
           {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">{error}</div>}
 
@@ -410,6 +450,8 @@ function CreatePlanModal({
               </button>
             </div>
           </form>
+
+          {isSubmitting && <MagicLoader progress={progress} message={progressMessage} onCancel={onClose} />}
         </div>
       </div>
     </div>
@@ -432,10 +474,8 @@ function Input({
   required?: boolean
 }) {
   return (
-    <div>
-      <label className="block text-sm font-medium text-black mb-2">
-        {label} {required && "*"}
-      </label>
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-black">{label}</label>
       <input
         type="text"
         value={value}
@@ -449,6 +489,75 @@ function Input({
   )
 }
 
+function MagicLoader({
+  progress,
+  message,
+  onCancel,
+}: {
+  progress: number
+  message: string
+  onCancel: () => void
+}) {
+  return (
+    <div className="absolute inset-0 rounded-xl bg-black/40 backdrop-blur-sm flex items-center justify-center z-10">
+      <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/50 bg-white/80 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.18)]">
+        <div className="absolute -left-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br from-[var(--accent-500)]/40 via-amber-300/40 to-white blur-3xl" />
+        <div className="absolute -right-8 -bottom-10 h-32 w-32 rounded-full bg-gradient-to-br from-black/10 via-[var(--accent-500)]/30 to-white blur-3xl" />
+        <div className="relative space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="relative flex h-12 w-12 items-center justify-center">
+              <div
+                className="h-12 w-12 rounded-full border-2 border-white/70"
+                style={{ boxShadow: "0 0 0 1px rgba(0,0,0,0.04)" }}
+              />
+              <div
+                className="absolute inset-0 rounded-full border-2 border-[var(--accent-600)]/80 animate-spin"
+                style={{ animationDuration: "1.6s" }}
+              />
+              <div className="absolute h-2 w-2 rounded-full bg-[var(--accent-600)] shadow-[0_0_12px_rgba(138,15,28,0.35)]" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-black">Generando con IA...</p>
+              <p className="text-xs text-black/60" aria-live="polite">
+                {message} Esto puede tardar unos segundos.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs text-black/70">
+              <span>Progreso</span>
+              <span className="font-semibold text-black">{Math.round(progress)}%</span>
+            </div>
+            <div className="h-3 overflow-hidden rounded-full bg-black/10">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[var(--accent-600)] via-amber-400 to-black transition-all duration-300 ease-out"
+                style={{ width: `${Math.min(progress, 100)}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-black/50">
+              <span>Planificando</span>
+              <span>Inspirando</span>
+              <span>Listo</span>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="text-xs text-black/60 hover:text-black rounded-full border border-black/10 px-3 py-1.5 transition"
+              aria-label="Cerrar generación"
+            >
+              Cancelar y volver
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
   const doc = plan.aiDoc || loadPlanDoc(plan.id)
   const docObject = typeof doc === "string" ? { plan: doc } : doc || {}
@@ -456,7 +565,7 @@ function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[var(--surface)] rounded-xl border border-[#E5E5E5] w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+      <div className="hard-shadow animate-fade-in-up max-w-5xl w-full bg-[var(--surface)]">
         <div className="p-6 space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -491,7 +600,9 @@ function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
 
               {docObject.perfil_audiencia && (
                 <Section title="Perfil de audiencia">
-                  <p className="text-sm text-black/70 whitespace-pre-line">{docObject.perfil_audiencia?.descripcion_general}</p>
+                  <p className="text-sm text-black/70 whitespace-pre-line">
+                    {docObject.perfil_audiencia?.descripcion_general}
+                  </p>
                   <p className="text-sm text-black/70">Demografía: {docObject.perfil_audiencia?.demografia}</p>
                   <p className="text-sm text-black/70">Psicografía: {docObject.perfil_audiencia?.psicografia}</p>
                   <p className="text-sm text-black/70 whitespace-pre-line">
@@ -544,7 +655,9 @@ function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
               {docObject.recomendaciones && (
                 <Section title="Recomendaciones">
                   <div className="space-y-2">
-                    <p className="text-sm text-black/70">Frecuencia: {docObject.recomendaciones?.frecuencia_publicacion}</p>
+                    <p className="text-sm text-black/70">
+                      Frecuencia: {docObject.recomendaciones?.frecuencia_publicacion}
+                    </p>
                     <p className="text-sm text-black/70">Horarios: {docObject.recomendaciones?.mejores_horarios}</p>
                     <p className="text-sm text-black/70">
                       Hashtags: {(docObject.recomendaciones?.hashtags_sugeridos || []).join(", ")}
@@ -552,7 +665,9 @@ function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
                     <p className="text-sm text-black/70">
                       Formatos: {(docObject.recomendaciones?.formatos_prioritarios || []).join(", ")}
                     </p>
-                    <p className="text-sm text-black/70">Métricas: {(docObject.recomendaciones?.metricas_clave || []).join(" , ")}}</p>
+                    <p className="text-sm text-black/70">
+                      Métricas: {(docObject.recomendaciones?.metricas_clave || []).join(", ")}
+                    </p>
                     <p className="text-sm text-black/70 whitespace-pre-line">{docObject.recomendaciones?.consejos_magicos}</p>
                   </div>
                 </Section>
@@ -564,6 +679,7 @@ function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
     </div>
   )
 }
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
@@ -572,12 +688,3 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </div>
   )
 }
-
-
-
-
-
-
-
-
-

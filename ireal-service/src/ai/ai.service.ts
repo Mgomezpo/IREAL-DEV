@@ -673,23 +673,22 @@ export class AiService {
     const start = performance.now();
 
     try {
-      const response = await this.geminiClient.models.generateContent({
+      const planRequest = {
         model: PLAN_MODEL,
-
         contents: prompt,
-
         generationConfig: {
           temperature: 0.6,
-
           topK: 40,
-
           topP: 0.9,
-
           maxOutputTokens: 4096,
-
           responseMimeType: 'application/json',
         },
-      });
+      } as unknown as Parameters<
+        typeof this.geminiClient.models.generateContent
+      >[0];
+
+      const response =
+        await this.geminiClient.models.generateContent(planRequest);
 
       const aiResponse = response as GeminiGenerateResponse;
 

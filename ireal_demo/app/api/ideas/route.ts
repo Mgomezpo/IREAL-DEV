@@ -55,27 +55,33 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(ideas ?? []);
   }
 
-  const response = await callService(buildQueryString(request), {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      "x-user-id": user.id,
-    },
-  });
+  try {
+    const response = await callService(buildQueryString(request), {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-id": user.id,
+      },
+    });
 
-  const envelope = await response.json();
+    const envelope = await response.json();
 
-  if (!response.ok) {
-    return NextResponse.json(envelope, { status: response.status });
+    if (!response.ok) {
+      console.error("[v0] Ideas service error:", response.status, envelope);
+      return NextResponse.json(envelope, { status: response.status });
+    }
+
+    const items = (envelope?.data?.items as unknown[]) ?? [];
+    const total = envelope?.data?.pagination?.total;
+
+    return NextResponse.json(items, {
+      status: response.status,
+      headers: total !== undefined ? { "x-total-count": String(total) } : undefined,
+    });
+  } catch (err) {
+    console.error("[v0] Ideas service error.", err);
+    return NextResponse.json({ error: "Failed to fetch ideas" }, { status: 502 });
   }
-
-  const items = (envelope?.data?.items as unknown[]) ?? [];
-  const total = envelope?.data?.pagination?.total;
-
-  return NextResponse.json(items, {
-    status: response.status,
-    headers: total !== undefined ? { "x-total-count": String(total) } : undefined,
-  });
 }
 
 export async function POST(request: NextRequest) {

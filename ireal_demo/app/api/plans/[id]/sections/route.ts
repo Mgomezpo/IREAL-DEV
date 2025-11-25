@@ -42,21 +42,31 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json(sections || []);
     }
 
-    const response = await callService(`${SERVICE_BASE_PATH}/${params.id}/sections`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "x-user-id": user.id,
-      },
-    });
+    try {
+      const response = await callService(`${SERVICE_BASE_PATH}/${params.id}/sections`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": user.id,
+        },
+      });
 
-    const envelope = await response.json();
-    if (!response.ok) {
-      return NextResponse.json(envelope, { status: response.status });
+      const envelope = await response.json();
+      if (!response.ok) {
+        if (response.status >= 500) {
+          console.error("[v0] Plans service unavailable (sections GET). Returning empty sections.");
+          return NextResponse.json([]);
+        }
+        return NextResponse.json(envelope, { status: response.status });
+      }
+
+      const sections = (envelope?.data as any[])?.map(mapSectionFromService) ?? [];
+      const ordered = sections.slice().sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+      return NextResponse.json(ordered);
+    } catch (serviceError) {
+      console.error("[v0] Plans service error (sections GET). Returning empty sections.", serviceError);
+      return NextResponse.json([]);
     }
-
-    const sections = (envelope?.data as any[])?.map(mapSectionFromService) ?? [];
-    return NextResponse.json(sections);
   } catch (error) {
     console.error("[v0] Error fetching sections:", error);
     return NextResponse.json({ error: "Error al cargar secciones" }, { status: 500 });

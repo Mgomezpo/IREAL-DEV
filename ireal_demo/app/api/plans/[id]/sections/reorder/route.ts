@@ -90,7 +90,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
 
     const sections = (envelope?.data as any[])?.map(mapSectionFromService) ?? [];
-    return NextResponse.json(sections);
+    const ordered = sections.slice().sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+    return NextResponse.json(ordered);
   } catch (error) {
     console.error("[v0] Error reordering sections:", error);
     return NextResponse.json({ error: "Error al reordenar secciones" }, { status: 500 });

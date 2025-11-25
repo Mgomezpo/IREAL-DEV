@@ -60,6 +60,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         )
         .eq("id", params.id)
         .eq("user_id", user.id)
+        .order("order_index", { referencedTable: "plan_sections", ascending: true })
         .single();
 
       if (error) throw error;
@@ -68,36 +69,73 @@ export async function GET(request: Request, { params }: { params: { id: string }
         return NextResponse.json({ error: "Plan no encontrado" }, { status: 404 });
       }
 
-      const sections = plan.plan_sections || [];
+      const sections = (plan.plan_sections || []).slice().sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
       const progress = calculatePlanProgress(sections);
 
       return NextResponse.json({
         ...plan,
+        plan_sections: sections,
         progress,
       });
     }
 
-    const response = await callService(`${SERVICE_BASE_PATH}/${params.id}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "x-user-id": user.id,
-      },
-    });
+    try {
+      const response = await callService(`${SERVICE_BASE_PATH}/${params.id}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": user.id,
+        },
+      });
 
-    const envelope = await response.json();
+      const envelope = await response.json();
 
-    if (!response.ok) {
-      return NextResponse.json(envelope, { status: response.status });
+      if (!response.ok) {
+        if (response.status >= 500) {
+          console.error("[v0] Plans service unavailable (GET by id). Returning placeholder plan.");
+          return NextResponse.json({
+            id: params.id,
+            user_id: user.id,
+            name: "Plan temporal",
+            description: null,
+            status: "draft",
+            channels: [],
+            start_date: null,
+            end_date: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            plan_sections: [],
+            progress: calculatePlanProgress([]),
+          });
+        }
+        return NextResponse.json(envelope, { status: response.status });
+      }
+
+      const plan = envelope?.data ? mapPlanFromService(envelope.data) : null;
+      if (!plan) {
+        return NextResponse.json({ error: "Plan no encontrado" }, { status: 404 });
+      }
+
+      const sections = (plan.plan_sections || []).slice().sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+      const progress = calculatePlanProgress(sections);
+      return NextResponse.json({ ...plan, plan_sections: sections, progress });
+    } catch (serviceError) {
+      console.error("[v0] Plans service error (GET by id). Returning placeholder plan.", serviceError);
+      return NextResponse.json({
+        id: params.id,
+        user_id: user.id,
+        name: "Plan temporal",
+        description: null,
+        status: "draft",
+        channels: [],
+        start_date: null,
+        end_date: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        plan_sections: [],
+        progress: calculatePlanProgress([]),
+      });
     }
-
-    const plan = envelope?.data ? mapPlanFromService(envelope.data) : null;
-    if (!plan) {
-      return NextResponse.json({ error: "Plan no encontrado" }, { status: 404 });
-    }
-
-    const progress = calculatePlanProgress(plan.plan_sections || []);
-    return NextResponse.json({ ...plan, progress });
   } catch (error) {
     console.error("[v0] Error fetching plan:", error);
     return NextResponse.json({ error: "Error al cargar plan" }, { status: 500 });

@@ -9,8 +9,10 @@ import { isIdeaPlanStabilityEnabled } from "@/lib/feature-flags"
 function NavigationRootInner({ children }: { children: React.ReactNode }) {
   const enabled = isIdeaPlanStabilityEnabled()
   const pathname = usePathname()
-  const disableShellRoutes = ["/"]
-  const shouldUseShell = enabled && !disableShellRoutes.includes(pathname ?? "")
+  const disableShellRoutes = ["/", "/auth"]
+  const currentPath = pathname ?? ""
+  const isShellDisabled = disableShellRoutes.some((route) => currentPath === route || currentPath.startsWith(`${route}/`))
+  const shouldUseShell = enabled && !isShellDisabled
   if (!shouldUseShell) {
     return <>{children}</>
   }

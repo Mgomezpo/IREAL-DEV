@@ -102,12 +102,13 @@ export default function PlanWorkspace() {
 
       const data = await response.json()
       console.log("[v0] Plan loaded:", data)
-      setPlan(data)
-      setSections(data.plan_sections || [])
+      const orderedSections = (data.plan_sections || []).slice().sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
+      setPlan({ ...data, plan_sections: orderedSections })
+      setSections(orderedSections)
 
       // Initialize section content
       const contentMap: { [key: string]: string } = {}
-      data.plan_sections?.forEach((section: any) => {
+      orderedSections.forEach((section: any) => {
         contentMap[section.id] = section.content?.text || ""
       })
       setSectionContent(contentMap)

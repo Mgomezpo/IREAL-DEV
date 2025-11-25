@@ -73,40 +73,59 @@ export async function GET() {
         `,
         )
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .order("order_index", { referencedTable: "plan_sections", ascending: true });
 
       if (error) throw error;
 
       const plansWithProgress =
-        plans?.map((plan) => ({
-          ...plan,
-          progress: calculatePlanProgress(plan.plan_sections || []),
-        })) ?? [];
+        plans?.map((plan) => {
+          const orderedSections = (plan.plan_sections || []).slice().sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+          return {
+            ...plan,
+            plan_sections: orderedSections,
+            progress: calculatePlanProgress(orderedSections),
+          };
+        }) ?? [];
 
       return NextResponse.json(plansWithProgress);
     }
 
-    const response = await callService(SERVICE_BASE_PATH, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "x-user-id": user.id,
-      },
-    });
+    try {
+      const response = await callService(SERVICE_BASE_PATH, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": user.id,
+        },
+      });
 
-    const envelope = await response.json();
+      const envelope = await response.json();
 
-    if (!response.ok) {
-      return NextResponse.json(envelope, { status: response.status });
+      if (!response.ok) {
+        if (response.status >= 500) {
+          console.error("[v0] Plans service unavailable, returning empty list");
+          return NextResponse.json([]);
+        }
+        return NextResponse.json(envelope, { status: response.status });
+      }
+
+      const plans =
+        (envelope?.data?.items as any[])?.map((plan) => {
+          const mapped = mapPlanFromService(plan);
+          const orderedSections = mapped.plan_sections.slice().sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+          return { ...mapped, plan_sections: orderedSections };
+        }) ?? [];
+      const withProgress = plans.map((plan) => ({
+        ...plan,
+        progress: calculatePlanProgress(plan.plan_sections || []),
+      }));
+
+      return NextResponse.json(withProgress);
+    } catch (serviceError) {
+      console.error("[v0] Plans service error (GET). Falling back to empty list.", serviceError);
+      return NextResponse.json([]);
     }
-
-    const plans = (envelope?.data?.items as any[])?.map(mapPlanFromService) ?? [];
-    const withProgress = plans.map((plan) => ({
-      ...plan,
-      progress: calculatePlanProgress(plan.plan_sections || []),
-    }));
-
-    return NextResponse.json(withProgress);
   } catch (error) {
     console.error("[v0] Error fetching plans:", error);
     return NextResponse.json({ error: "Error al cargar planes" }, { status: 500 });
@@ -115,6 +134,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const body = await request.json();
+    const { name, description, start_date, end_date, channels, status } = body;
+
     const supabase = await createServerClient();
     const {
       data: { user },
@@ -126,9 +148,9 @@ export async function POST(request: Request) {
       const fallbackPlan = {
         id: `local-${Date.now()}`,
         user_id: "anon",
-        name: body?.name ?? "Plan sin nombre",
-        description: body?.description ?? null,
-        status: body?.status ?? "draft",
+        name: name ?? "Plan sin nombre",
+        description: description ?? null,
+        status: status ?? "draft",
         channels: [],
         start_date: null,
         end_date: null,
@@ -138,9 +160,6 @@ export async function POST(request: Request) {
       };
       return NextResponse.json(fallbackPlan);
     }
-
-    const body = await request.json();
-    const { name, description, start_date, end_date, channels, status } = body;
 
     if (!SERVICE_ENABLED) {
       const { data: plan, error: planError } = await supabase
@@ -175,30 +194,65 @@ export async function POST(request: Request) {
       return NextResponse.json(plan);
     }
 
-    const response = await callService(SERVICE_BASE_PATH, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-user-id": user.id,
-      },
-      body: JSON.stringify({
-        name,
-        description,
-        startDate: start_date ?? null,
-        endDate: end_date ?? null,
-        channels: channels ?? [],
+    try {
+      const response = await callService(SERVICE_BASE_PATH, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": user.id,
+        },
+        body: JSON.stringify({
+          name,
+          description,
+          startDate: start_date ?? null,
+          endDate: end_date ?? null,
+          channels: channels ?? [],
+          status: status ?? "draft",
+        }),
+      });
+
+      const envelope = await response.json();
+
+      if (!response.ok) {
+        if (response.status >= 500) {
+          console.error("[v0] Plans service unavailable on create. Returning local draft.");
+          const fallbackPlan = {
+            id: `local-${Date.now()}`,
+            user_id: user.id,
+            name: name ?? "Plan sin nombre",
+            description: description ?? null,
+            status: status ?? "draft",
+            channels: channels ?? [],
+            start_date: start_date ?? null,
+            end_date: end_date ?? null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            plan_sections: DEFAULT_SECTIONS,
+          };
+          return NextResponse.json(fallbackPlan);
+        }
+        return NextResponse.json(envelope, { status: response.status });
+      }
+
+      const plan = envelope?.data ? mapPlanFromService(envelope.data) : null;
+      return NextResponse.json(plan);
+    } catch (serviceError) {
+      console.error("[v0] Plans service error (POST). Returning local draft.", serviceError);
+      const fallbackPlan = {
+        id: `local-${Date.now()}`,
+        user_id: user.id,
+        name: name ?? "Plan sin nombre",
+        description: description ?? null,
         status: status ?? "draft",
-      }),
-    });
-
-    const envelope = await response.json();
-
-    if (!response.ok) {
-      return NextResponse.json(envelope, { status: response.status });
+        channels: channels ?? [],
+        start_date: start_date ?? null,
+        end_date: end_date ?? null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        plan_sections: DEFAULT_SECTIONS,
+      };
+      return NextResponse.json(fallbackPlan);
     }
-
-    const plan = envelope?.data ? mapPlanFromService(envelope.data) : null;
-    return NextResponse.json(plan);
   } catch (error) {
     console.error("[v0] Error creating plan:", error);
     return NextResponse.json({ error: "Error al crear plan" }, { status: 500 });

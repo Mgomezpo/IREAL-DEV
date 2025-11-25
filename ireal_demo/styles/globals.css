@@ -39,6 +39,43 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+@layer utilities {
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 480ms ease-out both;
+  }
+
+  .hard-shadow {
+    position: relative;
+    border: 3px solid #000;
+    border-radius: 12px;
+    background: var(--surface);
+    padding: 20px;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  }
+
+  .hard-shadow::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 3px solid #000;
+    border-radius: 12px;
+    background: #000;
+    transform: translate(6px, 6px);
+    z-index: -1;
+  }
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

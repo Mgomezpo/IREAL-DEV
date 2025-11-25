@@ -343,7 +343,7 @@ function LegacyIdeaRow({ idea, onAction, onClick }: LegacyIdeaRowProps) {
 
   return (
     <div
-      className="group rounded-md border border-[#E5E5E5] bg-white/50 px-3 py-2 hover:bg-white/70 hover:shadow-sm transition-all cursor-pointer"
+      className="group hard-shadow cursor-pointer hover:-translate-y-[1px] transition-transform"
       onClick={onClick}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}

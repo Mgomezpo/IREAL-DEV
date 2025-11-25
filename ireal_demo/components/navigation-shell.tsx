@@ -38,6 +38,7 @@ export function NavigationShell({ children }: { children: React.ReactNode }) {
   const { goBack, history, enabled } = useNavigationState()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [collapsedHover, setCollapsedHover] = useState(false)
 
   useEffect(() => {
     if (enabled) {
@@ -51,6 +52,9 @@ export function NavigationShell({ children }: { children: React.ReactNode }) {
     navItems.map((item) => {
       const Icon = item.icon
       const isActive = pathname === item.path
+      const collapsedClasses = isCollapsed
+        ? "justify-center w-12 h-12 rounded-md px-0 py-0"
+        : "w-full gap-3 px-4 py-3 rounded-lg"
       return (
         <button
           key={item.path}
@@ -58,15 +62,15 @@ export function NavigationShell({ children }: { children: React.ReactNode }) {
             router.push(item.path)
             onNavigate?.()
           }}
-          className={`w-full flex items-center gap-3 px-5 py-3 text-left transition-colors rounded-lg ${
+          className={`flex items-center ${collapsedClasses} text-left transition-all ${
             isActive
-              ? "bg-white text-[#1e130b]"
+              ? "bg-white text-[#1e130b] shadow-[0_2px_0_rgba(0,0,0,0.08)]"
               : "text-[#5c4a3d] hover:text-[#1e130b] hover:bg-[#f9efe0]"
-          } ${isCollapsed ? "justify-center px-0" : ""}`}
+          }`}
           aria-current={isActive ? "page" : undefined}
         >
-          <Icon className="h-4 w-4" aria-hidden="true" />
-          {!isCollapsed && <span className="font-medium">{item.label}</span>}
+          <Icon className={isCollapsed ? "h-5 w-5" : "h-4 w-4"} aria-hidden="true" />
+          {!isCollapsed && <span className="font-medium tracking-tight">{item.label}</span>}
         </button>
       )
     })
@@ -75,9 +79,9 @@ export function NavigationShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-[var(--surface)]">
       <div
         className={`hidden lg:flex fixed left-0 top-0 bottom-0 flex-col border-r ${
-          collapsed ? "w-20" : "w-72"
+          collapsed ? "w-16" : "w-72"
         }`}
-        style={{ borderColor: BORDER, backgroundColor: SOFT_BG, color: ACCENT_TEXT }}
+        style={{ borderColor: BORDER, backgroundColor: SOFT_BG, color: ACCENT_TEXT, boxShadow: "4px 0 0 #00000010" }}
       >
         <div className="flex items-center justify-between gap-2 px-4 py-5">
           <Link
@@ -90,22 +94,37 @@ export function NavigationShell({ children }: { children: React.ReactNode }) {
             <Image
               src="/brand/logo-full.svg"
               alt="IREAL"
-              width={collapsed ? 48 : 136}
-              height={collapsed ? 24 : 32}
+              width={collapsed ? 36 : 136}
+              height={collapsed ? 18 : 32}
               priority
             />
           </Link>
           <button
             onClick={() => setCollapsed((prev) => !prev)}
-            className="rounded-md border p-2 transition-colors hover:bg-[#f9efe0]"
-            style={{ borderColor: BORDER, color: MUTED_TEXT }}
+            onMouseEnter={() => setCollapsedHover(true)}
+            onMouseLeave={() => setCollapsedHover(false)}
+            className="rounded-md border transition-colors hover:bg-[#f9efe0] flex items-center justify-center"
+            style={{ borderColor: BORDER, color: MUTED_TEXT, width: 40, height: 40 }}
             aria-label={collapsed ? "Expandir menu" : "Colapsar menu"}
           >
-            <Menu className="h-4 w-4" />
+            <span className="flex items-center justify-center w-6 h-6">
+              {collapsed ? (
+                collapsedHover ? (
+                  <Menu className="h-5 w-5" />
+                ) : (
+                  <Image src="/logos/Sombrero2.png" alt="Menu" width={22} height={18} className="object-contain" />
+                )
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </span>
           </button>
         </div>
 
-        <div className="flex-1 px-4 space-y-1 text-sm" style={{ color: MUTED_TEXT }}>
+        <div
+          className={`flex-1 ${collapsed ? "px-2 items-center" : "px-4"} space-y-1 text-sm flex flex-col`}
+          style={{ color: MUTED_TEXT }}
+        >
           {renderMenuItems(undefined, collapsed)}
         </div>
 
@@ -161,7 +180,7 @@ export function NavigationShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <div className={`min-h-screen ${collapsed ? "lg:ml-20" : "lg:ml-72"}`}>
+        <div className={`min-h-screen ${collapsed ? "lg:ml-16" : "lg:ml-72"}`}>
         <header
           className="flex items-center justify-between px-6 py-4 text-sm"
           style={{ borderBottom: `1px solid ${BORDER}`, backgroundColor: SOFT_BG, color: MUTED_TEXT }}

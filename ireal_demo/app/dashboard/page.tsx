@@ -1,7 +1,7 @@
-"use client"
+﻿"use client"
 
 import type React from "react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import {
@@ -21,15 +21,16 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import { useIdeasData } from "@/hooks/useIdeasData"
 import { isIdeaPlanStabilityEnabled } from "@/lib/feature-flags"
+import { HardCard } from "@/components/ui/hard-card"
 
 const mockIdeas = [
-  { id: "i1", title: "Checklist pre-publicación", meta: "Ayer 9:40", href: "/ideas/i1" },
-  { id: "i2", title: "10 tips para creadores", meta: "Hace 2 días", href: "/ideas/i2" },
-  { id: "i3", title: "Estrategia de contenido Q1", meta: "Hace 3 días", href: "/ideas/i3" },
+  { id: "i1", title: "Checklist pre-publicaciÃ³n", meta: "Ayer 9:40", href: "/ideas/i1" },
+  { id: "i2", title: "10 tips para creadores", meta: "Hace 2 dÃ­as", href: "/ideas/i2" },
+  { id: "i3", title: "Estrategia de contenido Q1", meta: "Hace 3 dÃ­as", href: "/ideas/i3" },
 ]
 
 const mockPlans = [
-  { id: "p1", title: "Campaña de lanzamiento", status: "Activo", progress: 75, href: "/planes/p1" },
+  { id: "p1", title: "CampaÃ±a de lanzamiento", status: "Activo", progress: 75, href: "/planes/p1" },
   { id: "p2", title: "Serie educativa YouTube", status: "Borrador", progress: 30, href: "/planes/p2" },
 ]
 
@@ -55,6 +56,7 @@ export default function DashboardPage() {
   const [isTransitioning] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const ideaPlanEnabled = isIdeaPlanStabilityEnabled()
+  const [promptQuestion, setPromptQuestion] = useState<string | null>(null)
 
   const { ideas: liveIdeas, stats: ideaStats } = useIdeasData()
   const ideaSource = ideaPlanEnabled ? liveIdeas : mockIdeas
@@ -74,7 +76,7 @@ export default function DashboardPage() {
       mockPlans.map((plan) => ({
         id: plan.id,
         title: plan.title,
-        meta: `${plan.status} · ${plan.progress}%`,
+        meta: `${plan.status} Â· ${plan.progress}%`,
         href: plan.href,
       })),
     [],
@@ -91,11 +93,26 @@ export default function DashboardPage() {
 
   const handleNewIdea = () => handleNavigation("/ideas/new")
 
+  useEffect(() => {
+    const loadQuestion = async () => {
+      try {
+        const res = await fetch("/api/random-question")
+        if (!res.ok) throw new Error("Failed to load question")
+        const data = await res.json()
+        setPromptQuestion(data?.question ?? null)
+      } catch (error) {
+        console.error("[dashboard] Failed to fetch random question", error)
+        setPromptQuestion("¿Qué quieres crear hoy?")
+      }
+    }
+    loadQuestion()
+  }, [])
+
   const mainContent = (
     <div className="max-w-7xl mx-auto px-6 py-10">
       <PageHeader
-        title="Tu página de hoy"
-        subtitle="Convierte tu idea en un hechizo de contenido."
+        title={promptQuestion ?? ""}
+        subtitle=""
         actions={
           <button
             onClick={handleNewIdea}
@@ -107,7 +124,7 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-3 items-start">
         <CardList
           icon={Feather}
           title="Ideas"
@@ -134,32 +151,32 @@ export default function DashboardPage() {
           type="plans"
         />
 
-        <div className="rounded-xl border border-[#E5E5E5] bg-white/40 p-5 hover:shadow-sm transition-shadow">
+        <HardCard className="h-full" contentClassName="flex flex-col h-full">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CalendarCheck2 className="h-5 w-5 text-black/60" aria-hidden="true" />
-              <h3 className="font-medium text-black">Publicaciones</h3>
+              <CalendarCheck2 className="h-5 w-5 text-black" aria-hidden="true" />
+              <h3 className="font-display text-lg font-semibold text-black">Publicaciones</h3>
             </div>
             <button
               onClick={() => handleNavigation("/calendario?view=week&focus=today")}
-              className="text-sm text-black/60 hover:text-black transition-colors"
+              className="text-sm text-black/70 hover:text-black transition-colors underline decoration-2 underline-offset-4"
             >
               Ver todo
             </button>
           </div>
 
-          <div className="space-y-3">
-            <p className="text-sm text-black/70">
-              <span className="font-medium">{weekCount}</span> programadas para esta semana
+          <div className="space-y-4 flex-1">
+            <p className="text-sm text-black/80">
+              <span className="font-semibold">{weekCount}</span> programadas para esta semana
             </p>
-            <div className="rounded-lg bg-white/60 p-3">
-              <p className="text-sm font-medium text-black">Hoy</p>
+            <div className="rounded-lg border border-black/10 bg-white/70 p-3">
+              <p className="text-sm font-semibold text-black">Hoy</p>
               <p className="mt-1 text-sm text-black/70">
                 Tienes <span className="font-medium">{today.length}</span> contenidos programados
               </p>
             </div>
           </div>
-        </div>
+        </HardCard>
       </div>
 
       <SummaryStrip yesterday={yesterday} today={today} tomorrow={tomorrow} onViewMore={() => handleNavigation("/calendario")} />
@@ -250,7 +267,7 @@ function LegacyDashboard({
             className="flex items-center gap-2 hover:text-[#1e130b] transition-colors"
           >
             <Settings className="h-4 w-4" />
-            Configuración
+            ConfiguraciÃ³n
           </button>
         </div>
       </div>
@@ -263,7 +280,7 @@ function LegacyDashboard({
           onClick={() => setIsMobileMenuOpen(true)}
           className="rounded-md p-2 focus:outline-none focus-visible:ring-2"
           style={{ color: MUTED_TEXT }}
-          aria-label="Abrir menú"
+          aria-label="Abrir menÃº"
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -301,18 +318,15 @@ function LegacyDashboard({
 
 function PageHeader({
   title,
-  subtitle,
   actions,
 }: {
   title: string
-  subtitle: string
   actions?: React.ReactNode
 }) {
   return (
     <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
       <div>
-        <p className="text-sm text-black/60">{subtitle}</p>
-        <h1 className="text-3xl font-medium text-black">{title}</h1>
+        <p className="text-3xl font-semibold text-[var(--accent-600)] font-display">{title}</p>
       </div>
       {actions}
     </div>
@@ -330,42 +344,43 @@ interface CardListProps {
 
 function CardList({ icon: Icon, title, items, onViewAll, emptyState }: CardListProps) {
   return (
-    <div className="rounded-xl border border-[#E5E5E5] bg-white/40 p-5 hover:shadow-sm transition-shadow">
+    <HardCard className="h-full" contentClassName="flex flex-col h-full">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Icon className="h-5 w-5 text-black/60" aria-hidden="true" />
-          <h3 className="font-medium text-black">{title}</h3>
+          <Icon className="h-5 w-5 text-black" aria-hidden="true" />
+          <h3 className="font-display text-lg font-semibold text-black">{title}</h3>
         </div>
-        <button onClick={onViewAll} className="text-sm text-black/60 hover:text-black transition-colors">
+        <button
+          onClick={onViewAll}
+          className="text-sm text-black/70 hover:text-black transition-colors underline decoration-2 underline-offset-4"
+        >
           Ver todo
         </button>
       </div>
 
       {items.length > 0 ? (
-        <ul className="space-y-3">
+        <ul className="space-y-3 flex-1">
           {items.map((item) => (
             <li key={item.id}>
               <button
                 onClick={() => onViewAll()}
-                className="w-full rounded-lg border border-transparent bg-white/60 px-3 py-2 text-left transition hover:border-[var(--accent-600)]/40 hover:bg-white"
+                className="w-full rounded-lg border-2 border-black/20 bg-white/80 px-3 py-2 text-left transition hover:-translate-y-[1px] hover:border-black/40 hover:shadow-[0_4px_0_rgba(0,0,0,0.15)]"
               >
-                <p className="font-medium text-black">{item.title}</p>
-                <p a="" className="text-sm text-black/60">
-                  {item.meta}
-                </p>
+                <p className="font-semibold text-black">{item.title}</p>
+                <p className="text-sm text-black/70">{item.meta}</p>
               </button>
             </li>
           ))}
         </ul>
       ) : (
-        <div className="rounded-lg bg-white/50 p-4 text-sm text-black/70">
+        <div className="rounded-lg border border-black/10 bg-white/70 p-4 text-sm text-black/80">
           <p>{emptyState.message}</p>
-          <button onClick={emptyState.onCta} className="mt-2 text-[var(--accent-600)] hover:underline">
+          <button onClick={emptyState.onCta} className="mt-2 text-[var(--accent-600)] hover:underline font-semibold">
             {emptyState.cta}
           </button>
         </div>
       )}
-    </div>
+    </HardCard>
   )
 }
 
@@ -383,33 +398,33 @@ function SummaryStrip({
   const sections = [
     { label: "Ayer", items: yesterday },
     { label: "Hoy", items: today },
-    { label: "Mañana", items: tomorrow },
+    { label: "Manana", items: tomorrow },
   ]
   return (
-    <div className="mt-10 rounded-2xl border border-[#E5E5E5] bg-white/30 p-6">
+    <HardCard className="mt-10">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-black">Resumen rápido</h3>
-          <p className="text-sm text-black/60">Lo esencial de tu calendario mágico.</p>
+          <p className="text-sm text-black/70">Lo esencial de tu calendario mágico.</p>
         </div>
-        <button onClick={onViewMore} className="text-sm text-[var(--accent-600)] hover:underline">
+        <button onClick={onViewMore} className="text-sm text-[var(--accent-600)] hover:underline font-semibold">
           Ver calendario
         </button>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         {sections.map((section) => (
-          <div key={section.label} className="rounded-xl border border-white/50 bg-white/70 p-4">
+          <div key={section.label} className="rounded-lg border-2 border-black/15 bg-white/80 p-4">
             <h4 className="text-sm font-semibold text-black">{section.label}</h4>
             <ul className="mt-3 space-y-2">
               {section.items.map((item) => (
                 <li key={`${section.label}-${item.title}`} className="text-sm text-black/70">
-                  {item.title} · <span className="capitalize">{item.status}</span>
+                  {item.title} - <span className="capitalize">{item.status}</span>
                 </li>
               ))}
             </ul>
           </div>
         ))}
       </div>
-    </div>
+    </HardCard>
   )
 }

@@ -17,9 +17,11 @@ import {
   AiNudgeData,
   AiPlanAssistData,
   AiPlanChatData,
+  PlanGenerationDocument,
 } from './ai.service';
 import { AiService } from './ai.service';
 import { GenerateAiDto } from './dto/generate-ai.dto';
+import { GeneratePlanFormDto } from './dto/generate-plan-form.dto';
 import { PlanChatDto } from './dto/plan-chat.dto';
 import { NudgeDto } from './dto/nudge.dto';
 import { CalendarRequestDto, SaveCalendarEntriesDto } from './dto/calendar.dto';
@@ -36,6 +38,14 @@ export class AiController {
   @RateLimit('ai')
   generate(@Body() dto: GenerateAiDto): Promise<ApiEnvelope<AiGenerationData>> {
     return this.aiService.generate(dto);
+  }
+
+  @Post('generate-plan')
+  @RateLimit('ai')
+  generatePlan(
+    @Body() dto: GeneratePlanFormDto,
+  ): Promise<ApiEnvelope<PlanGenerationDocument>> {
+    return this.aiService.generatePlanFromForm(dto);
   }
 
   @Post('plan-chat')

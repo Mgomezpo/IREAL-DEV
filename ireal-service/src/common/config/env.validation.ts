@@ -12,7 +12,8 @@ export const envSchema = z.object({
     .string()
     .min(1, 'NEXT_PUBLIC_SUPABASE_ANON_KEY is required'),
   AI_PROVIDER: z.string().min(1, 'AI_PROVIDER is required'),
-  AI_API_KEY: z.string().min(1, 'AI_API_KEY is required'),
+  AI_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
     .default('info'),
@@ -52,7 +53,17 @@ export const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 export const validateEnv = (config: Record<string, unknown>): Env => {
-  const parsed = envSchema.safeParse(config);
+  const parsed = envSchema
+    .superRefine((value, ctx) => {
+      if (!value.AI_API_KEY && !value.GEMINI_API_KEY) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['AI_API_KEY'],
+          message: 'AI_API_KEY or GEMINI_API_KEY is required',
+        });
+      }
+    })
+    .safeParse(config);
 
   if (!parsed.success) {
     const { fieldErrors } = parsed.error.flatten();

@@ -196,7 +196,7 @@ export default function Planes() {
                     >
                       Ver documento
                     </button>
-                    <button className="p-2 hover:bg-black/5 rounded-lg transition-colors" title="MÃ¡s opciones">
+                    <button className="p-2 hover:bg-black/5 rounded-lg transition-colors" title="Más opciones">
                       <MoreVertical className="h-4 w-4 text-black/40" />
                     </button>
                   </div>
@@ -330,7 +330,7 @@ function CreatePlanModal({
                 required
                 value={formData.name}
                 onChange={(v) => setFormData((p) => ({ ...p, name: v }))}
-                placeholder="Ej: CampaÃ±a Q1"
+                placeholder="Ej: Campaña Q1"
                 disabled={isSubmitting}
               />
             </div>
@@ -345,17 +345,17 @@ function CreatePlanModal({
 
             <div className="grid md:grid-cols-2 gap-4">
               <Input
-                label="Â¿QuÃ© mÃ¡s te gusta hacer / hablar?"
+                label="¿Qué más te gusta hacer / hablar?"
                 value={formData.pasion}
                 onChange={(v) => setFormData((p) => ({ ...p, pasion: v }))}
                 placeholder="Temas que amas"
                 disabled={isSubmitting}
               />
               <Input
-                label="Â¿Por quÃ© quieres crear contenido?"
+                label="¿Por qué quieres crear contenido?"
                 value={formData.motivacion}
                 onChange={(v) => setFormData((p) => ({ ...p, motivacion: v }))}
-                placeholder="MotivaciÃ³n/sueÃ±o"
+                placeholder="Motivación/sueño"
                 disabled={isSubmitting}
               />
             </div>
@@ -364,7 +364,7 @@ function CreatePlanModal({
               label="Describe a la persona con la que quieres conectar"
               value={formData.audiencia}
               onChange={(v) => setFormData((p) => ({ ...p, audiencia: v }))}
-              placeholder="Su perfil, intereses, quÃ© le importa"
+              placeholder="Su perfil, intereses, qué le importa"
               disabled={isSubmitting}
             />
 
@@ -377,10 +377,10 @@ function CreatePlanModal({
             />
 
             <Input
-              label="VisiÃ³n a 6 meses (Ã©xito)"
+              label="Visión a 6 meses (éxito)"
               value={formData.vision}
               onChange={(v) => setFormData((p) => ({ ...p, vision: v }))}
-              placeholder="Â¿QuÃ© estarÃ­a pasando?"
+              placeholder="¿Qué estaría pasando?"
               disabled={isSubmitting}
             />
 
@@ -451,6 +451,8 @@ function Input({
 
 function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
   const doc = plan.aiDoc || loadPlanDoc(plan.id)
+  const docObject = typeof doc === "string" ? { plan: doc } : doc || {}
+  const planText = docObject.plan || docObject.plan_text || null
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -472,63 +474,89 @@ function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
             </div>
           ) : (
             <div className="space-y-4">
-              <Section title="Ruta seleccionada">
-                <p className="text-sm text-black">
-                  <strong>{doc.ruta_seleccionada}</strong>
-                </p>
-                <p className="text-sm text-black/70 whitespace-pre-line">{doc.explicacion_ruta}</p>
-              </Section>
+              {planText && (
+                <Section title="Plan generado">
+                  <p className="text-sm text-black/70 whitespace-pre-line">{planText}</p>
+                </Section>
+              )}
 
-              <Section title="Perfil de audiencia">
-                <p className="text-sm text-black/70 whitespace-pre-line">{doc.perfil_audiencia?.descripcion_general}</p>
-                <p className="text-sm text-black/70">DemografÃ­a: {doc.perfil_audiencia?.demografia}</p>
-                <p className="text-sm text-black/70">PsicografÃ­a: {doc.perfil_audiencia?.psicografia}</p>
-                <p className="text-sm text-black/70 whitespace-pre-line">
-                  Pain points:
-                  {"\n"}
-                  {(doc.perfil_audiencia?.pain_points || []).join("\n")}
-                </p>
-                <p className="text-sm text-black/70 whitespace-pre-line">
-                  Aspiraciones:
-                  {"\n"}
-                  {(doc.perfil_audiencia?.aspiraciones || []).join("\n")}
-                </p>
-              </Section>
+              {docObject.ruta_seleccionada && (
+                <Section title="Ruta seleccionada">
+                  <p className="text-sm text-black">
+                    <strong>{docObject.ruta_seleccionada}</strong>
+                  </p>
+                  <p className="text-sm text-black/70 whitespace-pre-line">{docObject.explicacion_ruta}</p>
+                </Section>
+              )}
 
-              <Section title="Pilares de contenido">
-                <div className="space-y-2">
-                  {(doc.fundamentos?.pilares_contenido || []).map((p: any, idx: number) => (
-                    <div key={idx} className="rounded-lg bg-white/70 border border-black/10 p-3">
-                      <p className="font-semibold text-black">{p.nombre}</p>
-                      <p className="text-sm text-black/70">{p.descripcion}</p>
-                      <p className="text-sm text-black/60">PropÃ³sito: {p.proposito}</p>
-                    </div>
-                  ))}
-                </div>
-              </Section>
+              {docObject.perfil_audiencia && (
+                <Section title="Perfil de audiencia">
+                  <p className="text-sm text-black/70 whitespace-pre-line">{docObject.perfil_audiencia?.descripcion_general}</p>
+                  <p className="text-sm text-black/70">Demografía: {docObject.perfil_audiencia?.demografia}</p>
+                  <p className="text-sm text-black/70">Psicografía: {docObject.perfil_audiencia?.psicografia}</p>
+                  <p className="text-sm text-black/70 whitespace-pre-line">
+                    Pain points:
+                    {"\n"}
+                    {(docObject.perfil_audiencia?.pain_points || []).join("\n")}
+                  </p>
+                  <p className="text-sm text-black/70 whitespace-pre-line">
+                    Aspiraciones:
+                    {"\n"}
+                    {(docObject.perfil_audiencia?.aspiraciones || []).join("\n")}
+                  </p>
+                </Section>
+              )}
 
-              <Section title={`Ideas de contenido (${doc.ideas_contenido?.length || 0})`}>
-                <div className="space-y-2">
-                  {(doc.ideas_contenido || []).slice(0, 10).map((idea: any) => (
-                    <div key={idea.numero} className="rounded-lg bg-white/70 border border-black/10 p-3">
-                      <p className="font-semibold text-black">#{idea.numero} Â· {idea.tema}</p>
-                      <p className="text-sm text-black/70">Hook: {idea.hook}</p>
-                      <p className="text-sm text-black/70 whitespace-pre-line">{idea.desarrollo}</p>
-                      <p className="text-sm text-black/60">CTA: {idea.cta}</p>
-                    </div>
-                  ))}
-                  {doc.ideas_contenido && doc.ideas_contenido.length > 10 && (
-                    <p className="text-sm text-black/60">...y mÃ¡s ideas generadas.</p>
-                  )}
-                </div>
-              </Section>
+              {docObject.fundamentos?.pilares_contenido && (
+                <Section title="Pilares de contenido">
+                  <div className="space-y-2">
+                    {(docObject.fundamentos?.pilares_contenido || []).map((p: any, idx: number) => (
+                      <div key={idx} className="rounded-lg bg-white/70 border border-black/10 p-3">
+                        <p className="font-semibold text-black">{p.nombre}</p>
+                        <p className="text-sm text-black/70">{p.descripcion}</p>
+                        <p className="text-sm text-black/60">Propósito: {p.proposito}</p>
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              )}
 
-              <Section title="Recomendaciones">
-                <p className="text-sm text-black/70">Frecuencia: {doc.recomendaciones?.frecuencia_publicacion}</p>
-                <p className="text-sm text-black/70">Horarios: {doc.recomendaciones?.mejores_horarios}</p>
-                <p className="text-sm text-black/70">Hashtags: {(doc.recomendaciones?.hashtags_sugeridos || []).join(" ")}</p>
-                <p className="text-sm text-black/70">Formatos: {(doc.recomendaciones?.formatos_prioritarios || []).join(", ")}</p>
-              </Section>
+              {docObject.ideas_contenido && (
+                <Section title={`Ideas de contenido (${docObject.ideas_contenido?.length || 0})`}>
+                  <div className="space-y-2">
+                    {(docObject.ideas_contenido || []).slice(0, 10).map((idea: any) => (
+                      <div key={idea.numero} className="rounded-lg bg-white/70 border border-black/10 p-3">
+                        <p className="font-semibold text-black">
+                          #{idea.numero} - {idea.tema}
+                        </p>
+                        <p className="text-sm text-black/70">Hook: {idea.hook}</p>
+                        <p className="text-sm text-black/70 whitespace-pre-line">{idea.desarrollo}</p>
+                        <p className="text-sm text-black/60">CTA: {idea.cta}</p>
+                      </div>
+                    ))}
+                    {docObject.ideas_contenido && docObject.ideas_contenido.length > 10 && (
+                      <p className="text-sm text-black/60">Mostrando 10 ideas. Hay más en el documento.</p>
+                    )}
+                  </div>
+                </Section>
+              )}
+
+              {docObject.recomendaciones && (
+                <Section title="Recomendaciones">
+                  <div className="space-y-2">
+                    <p className="text-sm text-black/70">Frecuencia: {docObject.recomendaciones?.frecuencia_publicacion}</p>
+                    <p className="text-sm text-black/70">Horarios: {docObject.recomendaciones?.mejores_horarios}</p>
+                    <p className="text-sm text-black/70">
+                      Hashtags: {(docObject.recomendaciones?.hashtags_sugeridos || []).join(", ")}
+                    </p>
+                    <p className="text-sm text-black/70">
+                      Formatos: {(docObject.recomendaciones?.formatos_prioritarios || []).join(", ")}
+                    </p>
+                    <p className="text-sm text-black/70">Métricas: {(docObject.recomendaciones?.metricas_clave || []).join(" , ")}}</p>
+                    <p className="text-sm text-black/70 whitespace-pre-line">{docObject.recomendaciones?.consejos_magicos}</p>
+                  </div>
+                </Section>
+              )}
             </div>
           )}
         </div>
@@ -536,7 +564,6 @@ function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
     </div>
   )
 }
-
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
@@ -545,3 +572,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </div>
   )
 }
+
+
+
+
+
+
+
+
+

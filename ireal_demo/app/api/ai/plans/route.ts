@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { callService } from "@/lib/service-client"
 import { resolveUserIdForRateLimit } from "@/lib/request-context"
 
-const SERVICE_PATH = "/v1/ai/plans"
+const SERVICE_PATH = "/v1/ai/generate-plan"
 
 export async function POST(request: NextRequest) {
   try {

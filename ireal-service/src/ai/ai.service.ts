@@ -1,10 +1,14 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 
 import { ConfigService } from '@nestjs/config';
 
+import { GoogleGenAI } from '@google/genai';
+
 import { Response } from 'express';
+
+import { z } from 'zod';
 
 import { MetricsService } from '../metrics/metrics.service';
 
@@ -31,6 +35,7 @@ import {
 import { PlanAssistDto } from './dto/plan-assist.dto';
 import { PublishRequestDto } from './dto/publish.dto';
 import { ExportCalendarDto, ExportFormat } from './dto/export-calendar.dto';
+import { GeneratePlanFormDto } from './dto/generate-plan-form.dto';
 
 const SUPPORTED_CHANNELS = ['tiktok', 'instagram'] as const;
 
@@ -50,6 +55,7 @@ interface AiCallResult {
 
 type Operation =
   | 'generate'
+  | 'generate_plan'
   | 'plan_chat'
   | 'nudge'
   | 'calendar'
@@ -63,8 +69,12 @@ const MODEL_DEFAULT = 'gemini-1.5-flash';
 
 const MODEL_CALENDAR = 'gemini-pro';
 
+const PLAN_MODEL = 'gemini-2.5-flash';
+
 const OPERATION_TIMEOUT: Record<Operation, number> = {
   generate: 15000,
+
+  generate_plan: 20000,
 
   plan_chat: 12000,
 
@@ -79,6 +89,8 @@ const OPERATION_TIMEOUT: Record<Operation, number> = {
 
 const RATE_LIMITS: Record<Operation, { limit: number; windowMs: number }> = {
   generate: { limit: 30, windowMs: 60_000 },
+
+  generate_plan: { limit: 12, windowMs: 60_000 },
 
   plan_chat: { limit: 20, windowMs: 60_000 },
 
@@ -195,6 +207,146 @@ interface NormalizedCalendarRequest {
   pillars?: string;
 }
 
+const normalizeStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) =>
+        typeof item === 'string' ? item.trim() : String(item ?? '').trim(),
+      )
+      .filter((item) => item.length > 0);
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(/[\n,;]+/)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+
+  return [];
+};
+
+const stringArraySchema = z.preprocess(
+  (value) => normalizeStringArray(value),
+  z.array(z.string()).min(1),
+);
+
+const tripleStringArraySchema = z.preprocess(
+  (value) => normalizeStringArray(value),
+  z.array(z.string()).min(3),
+);
+
+const planIdeaSchema = z.object({
+  numero: z.preprocess((value) => {
+    if (typeof value === 'number') {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const parsed = Number.parseInt(value, 10);
+      return Number.isFinite(parsed) ? parsed : value;
+    }
+
+    return value;
+  }, z.number().int().positive()),
+
+  tema: z.string(),
+
+  hook: z.string(),
+
+  desarrollo: z.string(),
+
+  punto_quiebre: z.string(),
+
+  cta: z.string(),
+
+  copy: z.string(),
+
+  pilar: z.string(),
+});
+
+const planSchema = z.object({
+  ruta_seleccionada: z.string().min(3),
+
+  explicacion_ruta: z.string().min(3),
+
+  metadata: z.object({
+    nombre: z.string().min(1),
+
+    fecha: z.string().min(4),
+  }),
+
+  perfil_audiencia: z.object({
+    descripcion_general: z.string().min(3),
+
+    demografia: z.string().min(3),
+
+    psicografia: z.string().min(3),
+
+    pain_points: tripleStringArraySchema,
+
+    aspiraciones: tripleStringArraySchema,
+
+    lenguaje_recomendado: z.string().min(3),
+  }),
+
+  fundamentos: z.object({
+    pilares_contenido: z
+      .array(
+        z.object({
+          nombre: z.string(),
+
+          descripcion: z.string(),
+
+          proposito: z.string(),
+        }),
+      )
+      .min(3),
+
+    tono_voz: z.string().min(3),
+
+    propuesta_valor: z.string().min(3),
+  }),
+
+  ideas_contenido: z.array(planIdeaSchema).min(4),
+
+  recomendaciones: z.object({
+    frecuencia_publicacion: z.string().min(3),
+
+    mejores_horarios: z.string().min(3),
+
+    hashtags_sugeridos: stringArraySchema,
+
+    formatos_prioritarios: stringArraySchema,
+
+    metricas_clave: stringArraySchema,
+
+    consejos_magicos: stringArraySchema,
+  }),
+});
+
+type StructuredPlan = z.infer<typeof planSchema>;
+
+export type PlanGenerationDocument = StructuredPlan & {
+  plan_text: string;
+
+  plan: string;
+};
+
+type GeminiGenerateResponse = {
+  text?: string | (() => string);
+
+  response?: {
+    candidates?: Array<{
+      content?: { parts?: Array<{ text?: string }> };
+    }>;
+
+    usageMetadata?: { totalTokenCount?: number };
+  };
+
+  usageMetadata?: { totalTokenCount?: number };
+};
+
 interface CalendarDiff extends Record<string, unknown> {
   added: CalendarPiece[];
 
@@ -223,58 +375,11 @@ export class AiService {
 
   private readonly provider: string;
 
+  private readonly geminiClient: GoogleGenAI;
+
   private readonly rateLimiters = new Map<string, RateLimiter>();
 
   private readonly calendarLocks = new Set<string>();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   private readonly publishEnabled: boolean;
 
@@ -290,10 +395,15 @@ export class AiService {
     private readonly supabase: SupabaseService,
   ) {
     this.apiKey =
+      this.configService.get<string>('GEMINI_API_KEY') ??
       this.configService.get<string>('AI_API_KEY') ??
+      process.env.GEMINI_API_KEY ??
+      process.env.AI_API_KEY ??
       (() => {
-        throw new Error('AI_API_KEY not configured');
+        throw new Error('AI_API_KEY or GEMINI_API_KEY not configured');
       })();
+
+    this.geminiClient = new GoogleGenAI({ apiKey: this.apiKey });
 
     this.provider =
       this.configService.get<string>('AI_PROVIDER') ?? 'google-gemini';
@@ -555,6 +665,138 @@ export class AiService {
     );
   }
 
+  async generatePlanFromForm(
+    dto: GeneratePlanFormDto,
+  ): Promise<ApiEnvelope<PlanGenerationDocument>> {
+    const prompt = this.buildPlanPromptFromForm(dto);
+
+    const start = performance.now();
+
+    try {
+      const response = await this.geminiClient.models.generateContent({
+        model: PLAN_MODEL,
+
+        contents: prompt,
+
+        generationConfig: {
+          temperature: 0.6,
+
+          topK: 40,
+
+          topP: 0.9,
+
+          maxOutputTokens: 4096,
+
+          responseMimeType: 'application/json',
+        },
+      });
+
+      const aiResponse = response as GeminiGenerateResponse;
+
+      const latencyMs = performance.now() - start;
+
+      let rawText: string | undefined;
+
+      if (typeof aiResponse.text === 'function') {
+        rawText = aiResponse.text();
+      } else if (typeof aiResponse.text === 'string') {
+        rawText = aiResponse.text;
+      } else {
+        rawText = (aiResponse.response?.candidates?.[0]?.content?.parts ?? [])
+          .map((part: { text?: string }) => part.text ?? '')
+          .join('');
+      }
+
+      if (!rawText) {
+        throw new ApiHttpException(
+          'AI_EMPTY_RESPONSE',
+
+          'AI provider returned an empty response',
+
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+
+      const tokens =
+        aiResponse.response?.usageMetadata?.totalTokenCount ??
+        aiResponse.usageMetadata?.totalTokenCount ??
+        0;
+
+      const jsonPayload = this.extractJsonObject(rawText);
+
+      const structuredPlan = this.parsePlanJson(jsonPayload, dto);
+
+      const planText = this.renderPlanTemplate(structuredPlan);
+
+      this.metricsService.observeAiLatency(
+        'generate_plan',
+
+        'success',
+
+        latencyMs,
+      );
+
+      if (tokens > 0) {
+        this.metricsService.incrementAiTokens(
+          'generate_plan',
+
+          PLAN_MODEL,
+
+          tokens,
+        );
+      }
+
+      const document: PlanGenerationDocument = {
+        ...structuredPlan,
+
+        plan_text: planText,
+
+        plan: planText,
+      };
+
+      return buildSuccess(document, {
+        provider: this.provider,
+
+        model: PLAN_MODEL,
+
+        tokens,
+
+        latencyMs,
+      });
+    } catch (error: unknown) {
+      const latencyMs = performance.now() - start;
+
+      this.metricsService.observeAiLatency('generate_plan', 'error', latencyMs);
+
+      this.metricsService.incrementAiErrors(
+        'generate_plan',
+
+        this.extractErrorCode(error as ApiHttpException) ?? 'unexpected',
+      );
+
+      this.logger.error(
+        'Gemini plan generation failed',
+
+        error instanceof Error ? error.stack : String(error),
+      );
+
+      if (error instanceof ApiHttpException) {
+        throw error;
+      }
+
+      const message =
+        error instanceof Error ? error.message : 'AI provider error';
+
+      throw new ApiHttpException(
+        'AI_PLAN_GENERATION_FAILED',
+
+        message,
+
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
   async planChat(dto: PlanChatDto): Promise<ApiEnvelope<AiPlanChatData>> {
     const history = dto.messages
 
@@ -568,8 +810,6 @@ export class AiService {
 
     const contextualPrompt = dto.planContext
       ? `${this.planSystemPrompt()}
-
-
 
 Contexto del plan:
 
@@ -640,8 +880,6 @@ Contexto del plan:
   async nudge(dto: NudgeDto): Promise<ApiEnvelope<AiNudgeData>> {
     const prompt = `${this.nudgeSystemPrompt()}
 
-
-
 Fragmento del creador:
 
 "${dto.fragment}"`;
@@ -705,8 +943,6 @@ Fragmento del creador:
     const lastMessage = dto.messages.at(-1)?.content ?? '';
 
     const systemPrompt = `${this.planAssistPrompt()}
-
-
 
 Plan context: ${context}
 
@@ -2115,9 +2351,9 @@ Requested command: ${command}`;
 
           format: 'post',
 
-          copy: 'Este es un borrador generado automÃ¡ticamente. Ajusta el mensaje para alinearlo con tu marca.',
+          copy: 'Este es un borrador generado automáticamente. Ajusta el mensaje para alinearlo con tu marca.',
 
-          script: 'IntroducciÃ³n\nMensajes clave\nLlamado a la acciÃ³n',
+          script: 'Introducción\nMensajes clave\nLlamado a la acción',
 
           targetAudience: 'Audiencia principal',
 
@@ -2131,6 +2367,294 @@ Requested command: ${command}`;
     }
   }
 
+  private extractJsonObject(text: string): string {
+    const trimmed = text.trim();
+
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      return trimmed;
+    }
+
+    const match = trimmed.match(/\{[\s\S]*\}/);
+
+    if (match?.[0]) {
+      return match[0];
+    }
+
+    throw new ApiHttpException(
+      'AI_PLAN_INVALID_JSON',
+      'AI response did not include a JSON object',
+      HttpStatus.BAD_GATEWAY,
+    );
+  }
+
+  private parsePlanJson(
+    jsonText: string,
+    dto: GeneratePlanFormDto,
+  ): StructuredPlan {
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Invalid JSON payload';
+
+      throw new ApiHttpException(
+        'AI_PLAN_INVALID_JSON',
+        'AI response is not valid JSON',
+        HttpStatus.BAD_GATEWAY,
+        undefined,
+        { message },
+      );
+    }
+
+    const validation = planSchema.safeParse(parsed);
+
+    if (!validation.success) {
+      throw new ApiHttpException(
+        'AI_PLAN_SCHEMA_INVALID',
+        'AI response is missing required fields',
+        HttpStatus.BAD_GATEWAY,
+        undefined,
+        {
+          issues: validation.error.errors.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+      );
+    }
+
+    const normalizedRoute = this.normalizeRoute(
+      validation.data.ruta_seleccionada,
+    );
+
+    const safeName =
+      validation.data.metadata.nombre?.trim() ||
+      dto.nombre?.trim() ||
+      'Creador';
+
+    const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(validation.data.metadata.fecha)
+      ? validation.data.metadata.fecha
+      : new Date().toISOString().slice(0, 10);
+
+    const ideas = [...validation.data.ideas_contenido].sort(
+      (a, b) => a.numero - b.numero,
+    );
+
+    const plan: StructuredPlan = {
+      ...validation.data,
+
+      ruta_seleccionada: normalizedRoute,
+
+      metadata: {
+        ...validation.data.metadata,
+
+        nombre: safeName,
+
+        fecha: safeDate,
+      },
+
+      ideas_contenido: ideas,
+    };
+
+    this.ensureIdeaVolume(plan);
+
+    return plan;
+  }
+
+  private ensureIdeaVolume(plan: StructuredPlan): void {
+    const route = this.normalizeRoute(plan.ruta_seleccionada);
+
+    const minIdeas =
+      route === 'ENTRETENIMIENTO' ? 20 : route === 'EDUCACION' ? 12 : 8;
+
+    if (plan.ideas_contenido.length < minIdeas) {
+      throw new ApiHttpException(
+        'AI_PLAN_INCOMPLETE',
+        `AI response included ${plan.ideas_contenido.length} ideas, expected at least ${minIdeas}`,
+        HttpStatus.BAD_GATEWAY,
+        undefined,
+        {
+          route,
+          received: plan.ideas_contenido.length,
+          expected: minIdeas,
+        },
+      );
+    }
+  }
+
+  private renderPlanTemplate(plan: StructuredPlan): string {
+    const lines: string[] = [
+      `Plan de contenido para ${plan.metadata.nombre} (${plan.metadata.fecha})`,
+
+      `Ruta seleccionada: ${plan.ruta_seleccionada}`,
+
+      '',
+
+      'Explicacion de la ruta:',
+
+      plan.explicacion_ruta,
+
+      '',
+
+      'Perfil de audiencia:',
+
+      `- Descripcion general: ${plan.perfil_audiencia.descripcion_general}`,
+
+      `- Demografia: ${plan.perfil_audiencia.demografia}`,
+
+      `- Psicografia: ${plan.perfil_audiencia.psicografia}`,
+
+      `- Pain points: ${plan.perfil_audiencia.pain_points.join('; ')}`,
+
+      `- Aspiraciones: ${plan.perfil_audiencia.aspiraciones.join('; ')}`,
+
+      `- Lenguaje recomendado: ${plan.perfil_audiencia.lenguaje_recomendado}`,
+
+      '',
+
+      'Fundamentos:',
+
+      ...plan.fundamentos.pilares_contenido.map(
+        (pilar, index) =>
+          `Pilar ${index + 1}: ${pilar.nombre} - ${pilar.descripcion} (proposito: ${pilar.proposito})`,
+      ),
+
+      `Tono de voz: ${plan.fundamentos.tono_voz}`,
+
+      `Propuesta de valor: ${plan.fundamentos.propuesta_valor}`,
+
+      '',
+
+      'Ideas de contenido (primeras 10):',
+
+      ...plan.ideas_contenido
+        .slice(0, 10)
+        .map(
+          (idea) =>
+            `#${idea.numero} ${idea.tema} | Hook: ${idea.hook} | CTA: ${idea.cta}`,
+        ),
+
+      plan.ideas_contenido.length > 10
+        ? `Total de ideas: ${plan.ideas_contenido.length}. Revisa ideas_contenido para el resto.`
+        : '',
+
+      '',
+
+      'Recomendaciones:',
+
+      `- Frecuencia: ${plan.recomendaciones.frecuencia_publicacion}`,
+
+      `- Horarios: ${plan.recomendaciones.mejores_horarios}`,
+
+      `- Hashtags: ${plan.recomendaciones.hashtags_sugeridos.join(', ')}`,
+
+      `- Formatos prioritarios: ${plan.recomendaciones.formatos_prioritarios.join(', ')}`,
+
+      `- Metricas clave: ${plan.recomendaciones.metricas_clave.join(', ')}`,
+
+      `- Consejos magicos: ${plan.recomendaciones.consejos_magicos.join('; ')}`,
+    ].filter(Boolean);
+
+    return lines.join('\n');
+  }
+
+  private buildPlanPromptFromForm(dto: GeneratePlanFormDto): string {
+    const temas = (dto.temas ?? []).filter(Boolean);
+
+    const temasLine = temas.length > 0 ? temas.join(', ') : 'No especificados';
+
+    const sampleName = (dto.nombre ?? 'Creador').replace(/"/g, '\\"');
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    const formatBlock = [
+      '{',
+      '  "ruta_seleccionada": "ENTRETENIMIENTO o EDUCACION",',
+      '  "explicacion_ruta": "Explicacion breve de la ruta elegida",',
+      `  "metadata": { "nombre": "${sampleName}", "fecha": "${today}" },`,
+      '  "perfil_audiencia": { "descripcion_general": "", "demografia": "", "psicografia": "", "pain_points": ["p1","p2","p3"], "aspiraciones": ["a1","a2","a3"], "lenguaje_recomendado": "" },',
+      '  "fundamentos": { "pilares_contenido": [ { "nombre": "", "descripcion": "", "proposito": "" }, { "nombre": "", "descripcion": "", "proposito": "" }, { "nombre": "", "descripcion": "", "proposito": "" } ], "tono_voz": "", "propuesta_valor": "" },',
+      '  "ideas_contenido": [ { "numero": 1, "tema": "", "hook": "", "desarrollo": "", "punto_quiebre": "", "cta": "", "copy": "", "pilar": "" } ],',
+      '  "recomendaciones": { "frecuencia_publicacion": "", "mejores_horarios": "", "hashtags_sugeridos": ["tag1","tag2"], "formatos_prioritarios": ["formato1","formato2"], "metricas_clave": ["metrica1","metrica2"], "consejos_magicos": ["tip1","tip2","tip3"] }',
+      '}',
+    ].join('\n');
+
+    return [
+      'Eres el asistente magico de IREAL. Tu mision es ayudar a los creadores a transformar ideas en contenido.',
+
+      'Debes responder con tono inspirador, claro, con secciones y valor tactico.',
+
+      'INSTRUCCION CRITICA:',
+
+      '- Responde UNICAMENTE con un objeto JSON valido.',
+
+      '- No uses bloques de codigo ni markdown.',
+
+      '- No agregues texto antes ni despues del JSON; la respuesta debe iniciar con { y terminar con }.',
+
+      '',
+
+      'DATOS DEL USUARIO:',
+
+      `email: ${dto.email ?? 'no especificado'}`,
+
+      `nombre: ${dto.nombre ?? 'Creador'}`,
+
+      `pasion: ${dto.pasion ?? 'No especificada'}`,
+
+      `motivacion: ${dto.motivacion ?? 'No especificada'}`,
+
+      `conexion: ${dto.conexion ?? 'No especificada'}`,
+
+      `temas: ${temasLine}`,
+
+      `vision: ${dto.vision ?? 'No especificada'}`,
+
+      `tiempo: ${dto.tiempo ?? 'No especificado'}`,
+
+      '',
+
+      'TAREAS:',
+
+      '1. CLASIFICACION DE RUTA: Determina si el contenido debe ser ENTRETENIMIENTO (crecimiento rapido, tono casual/divertido) o EDUCACION (expertise/ventas, tono educativo).',
+
+      '2. PERFIL DE AUDIENCIA: descripcion_general (2-3 parrafos), demografia, psicografia, pain_points (3), aspiraciones (3), lenguaje_recomendado.',
+
+      '3. FUNDAMENTOS: 3 pilares_contenido (nombre, descripcion, proposito), tono_voz y propuesta_valor.',
+
+      '4. IDEAS DE CONTENIDO: Si la ruta es ENTRETENIMIENTO genera minimo 20 ideas. Si es EDUCACION genera minimo 12 ideas. Cada idea incluye numero, tema, hook, desarrollo, punto_quiebre, cta, copy, pilar.',
+
+      '5. RECOMENDACIONES: frecuencia_publicacion, mejores_horarios, hashtags_sugeridos (5-8), formatos_prioritarios (3-5), metricas_clave (4-6), consejos_magicos (3).',
+
+      '',
+
+      'FORMATO DE SALIDA:',
+
+      formatBlock,
+
+      'Usa metadata.nombre exactamente como viene en los datos del usuario y metadata.fecha en formato YYYY-MM-DD.',
+    ].join('\n');
+  }
+
+  private normalizeRoute(route: string): string {
+    const normalized = route
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase()
+      .trim();
+
+    if (normalized.includes('ENTRETENIMIENTO')) {
+      return 'ENTRETENIMIENTO';
+    }
+
+    if (normalized.includes('EDUCACION')) {
+      return 'EDUCACION';
+    }
+
+    return route.trim();
+  }
   private buildSystemPrompt(type: 'general' | 'calendar' | 'idea' | 'plan') {
     switch (type) {
       case 'calendar':

@@ -23,8 +23,10 @@ import {
   ChevronRight,
   Save,
   ChevronDown,
+  Loader2,
 } from "lucide-react"
 import { FlipCard } from "@/components/flip-card"
+import { ManagePlanNotesModal } from "@/components/manage-plan-notes-modal"
 
 // Mock plan data
 const mockPlan = {
@@ -64,9 +66,23 @@ const mockMessages = [
   },
 ]
 
+type IdeaSummary = {
+  id: string
+  title: string
+  content?: string | null
+}
+
+type PlanStrategy = {
+  diagnosis?: string
+  strategy?: string
+  executionPlan?: string
+  raw?: unknown
+}
+
 export default function PlanWorkspace() {
   const router = useRouter()
   const params = useParams()
+  const planId = String(params.id)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [isDocumentExpanded, setIsDocumentExpanded] = useState(false)
   const [messages, setMessages] = useState<any[]>([])
@@ -82,13 +98,42 @@ export default function PlanWorkspace() {
   const [editingSection, setEditingSection] = useState<string | null>(null)
   const [sectionContent, setSectionContent] = useState<{ [key: string]: string }>({})
   const [insertMenuOpen, setInsertMenuOpen] = useState<string | null>(null)
+  const [linkedIdeas, setLinkedIdeas] = useState<IdeaSummary[]>([])
+  const [loadingIdeas, setLoadingIdeas] = useState(false)
+  const [notesModalOpen, setNotesModalOpen] = useState(false)
+  const [strategy, setStrategy] = useState<PlanStrategy | null>(null)
+  const [strategyLoading, setStrategyLoading] = useState(false)
+  const [strategyError, setStrategyError] = useState<string | null>(null)
 
   useEffect(() => {
     loadPlan()
   }, [params.id])
 
+  const loadLinkedIdeas = async () => {
+    try {
+      setLoadingIdeas(true)
+      const response = await fetch(`/api/plans/${planId}/ideas`)
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push("/auth")
+          return
+        }
+        throw new Error("Error al cargar notas vinculadas")
+      }
+      const data = (await response.json()) as IdeaSummary[]
+      setLinkedIdeas(data ?? [])
+    } catch (error) {
+      console.error("[v0] Error loading linked ideas:", error)
+      setLinkedIdeas([])
+    } finally {
+      setLoadingIdeas(false)
+    }
+  }
+
   const loadPlan = async () => {
     try {
+      setStrategy(null)
+      setStrategyError(null)
       console.log("[v0] Loading plan:", params.id)
       const response = await fetch(`/api/plans/${params.id}`)
 
@@ -113,6 +158,8 @@ export default function PlanWorkspace() {
       })
       setSectionContent(contentMap)
 
+      void loadLinkedIdeas()
+
       // Initialize chat with welcome message
       setMessages([
         {
@@ -126,6 +173,32 @@ export default function PlanWorkspace() {
       console.error("[v0] Error loading plan:", error)
     } finally {
       setLoadingPlan(false)
+    }
+  }
+
+  const regenerateStrategy = async () => {
+    try {
+      setStrategyLoading(true)
+      setStrategyError(null)
+      const response = await fetch(`/api/plans/${planId}/generate-strategy`, {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push("/auth")
+          return
+        }
+        throw new Error(`Error al regenerar estrategia (${response.status})`)
+      }
+
+      const data = await response.json()
+      setStrategy(data ?? null)
+    } catch (error) {
+      console.error("[v0] Error regenerating strategy:", error)
+      setStrategyError("No se pudo regenerar la estrategia. Intenta de nuevo.")
+    } finally {
+      setStrategyLoading(false)
     }
   }
 
@@ -512,6 +585,94 @@ export default function PlanWorkspace() {
                       />
                     </div>
                   ))}
+                  <div className="rounded-xl border border-[#E5E5E5] bg-white/60 p-5">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <h3 className="font-display text-lg font-semibold text-black">Contexto / Notas vinculadas</h3>
+                        <p className="text-sm text-black/60">
+                          Las notas vinculadas alimentan la estrategia de IA para este plan.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setNotesModalOpen(true)}
+                        className="px-3 py-2 text-xs font-medium rounded-lg border border-[var(--accent-600)]/40 text-[var(--accent-700)] hover:border-[var(--accent-600)] hover:bg-[var(--accent-600)]/10 transition-colors"
+                      >
+                        Gestionar notas
+                      </button>
+                    </div>
+                    {loadingIdeas ? (
+                      <div className="flex items-center gap-2 text-sm text-black/60">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Cargando notas vinculadas...
+                      </div>
+                    ) : linkedIdeas.length === 0 ? (
+                      <p className="text-sm text-black/50">Aún no hay notas vinculadas.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {linkedIdeas.map((idea) => (
+                          <button
+                            key={idea.id}
+                            className="w-full text-left rounded-lg border border-[#E5E5E5] bg-white/70 px-3 py-2 hover:border-[var(--accent-600)]/40 hover:bg-[var(--accent-600)]/5 transition-colors"
+                            onClick={() => router.push(`/ideas/${idea.id}`)}
+                          >
+                            <p className="text-sm font-medium text-black">{idea.title || "Idea sin título"}</p>
+                            {idea.content && (
+                              <p className="text-xs text-black/60 line-clamp-2 whitespace-pre-line">{idea.content}</p>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-[#E5E5E5] bg-white/60 p-5">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <h3 className="font-display text-lg font-semibold text-black">Estrategia generada por IA</h3>
+                        <p className="text-sm text-black/60">
+                          Diagnóstico, estrategia y plan de ejecución basados en el plan y sus notas.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => void regenerateStrategy()}
+                        disabled={strategyLoading}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg text-white bg-[var(--accent-600)] hover:bg-[var(--accent-700)] transition-colors disabled:opacity-50"
+                      >
+                        {strategyLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Regenerar Estrategia
+                      </button>
+                    </div>
+                    {strategyError && (
+                      <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-600">{strategyError}</div>
+                    )}
+                    {strategy ? (
+                      <div className="space-y-4">
+                        {strategy.diagnosis && (
+                          <div>
+                            <h4 className="text-sm font-semibold text-black">Diagnosis</h4>
+                            <p className="text-sm text-black/70 whitespace-pre-line">{strategy.diagnosis}</p>
+                          </div>
+                        )}
+                        {strategy.strategy && (
+                          <div>
+                            <h4 className="text-sm font-semibold text-black">Strategy</h4>
+                            <p className="text-sm text-black/70 whitespace-pre-line">{strategy.strategy}</p>
+                          </div>
+                        )}
+                        {strategy.executionPlan && (
+                          <div>
+                            <h4 className="text-sm font-semibold text-black">Execution</h4>
+                            <p className="text-sm text-black/70 whitespace-pre-line">{strategy.executionPlan}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-black/50">
+                        Aún no se ha generado la estrategia. Usa "Regenerar Estrategia" para obtenerla con el contexto
+                        actualizado.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -634,6 +795,17 @@ export default function PlanWorkspace() {
           }
         />
       </div>
+      <ManagePlanNotesModal
+        planId={planId}
+        initialSelectedIds={linkedIdeas.map((idea) => idea.id)}
+        open={notesModalOpen}
+        onClose={() => setNotesModalOpen(false)}
+        onSaved={(ideas) => {
+          setLinkedIdeas(ideas)
+          setNotesModalOpen(false)
+          void loadLinkedIdeas()
+        }}
+      />
     </div>
   )
 }

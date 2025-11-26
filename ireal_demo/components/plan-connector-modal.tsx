@@ -126,14 +126,14 @@ export function PlanConnectorModal({ ideaId, ideaTitle, open, onClose, onAttache
               <button
                 onClick={() => {
                   if (!ideaId) return
-                  router.push(`/planes/new?ideaId=${ideaId}`)
+                  router.push(`/planes/new?linkedIdeaId=${ideaId}`)
                   onClose()
                 }}
                 disabled={!ideaId}
-                className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-black/20 bg-white/60 p-4 text-center text-black/70 transition hover:border-black/40 hover:text-black disabled:cursor-not-allowed"
+                className="flex flex-col items-center justify-center rounded-2xl border border-[var(--accent-600)]/40 bg-[var(--accent-600)]/10 p-4 text-center text-[var(--accent-700)] transition hover:border-[var(--accent-600)] hover:bg-[var(--accent-600)]/15 hover:text-[var(--accent-800)] disabled:cursor-not-allowed"
               >
                 <Plus className="mb-2 h-5 w-5" />
-                Crear nuevo plan
+                Crear nuevo plan a partir de esta nota
               </button>
             </div>
           )}

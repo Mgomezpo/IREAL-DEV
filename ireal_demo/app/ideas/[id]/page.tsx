@@ -7,6 +7,7 @@ import { useRouter, useParams } from "next/navigation"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { NudgeBubble } from "@/components/nudge-bubble"
 import { useAutosaveNote } from "@/hooks/useAutosaveNote"
+import { PlanConnectorModal } from "@/components/plan-connector-modal"
 
 function hashString(str: string): string {
   let hash = 0
@@ -66,6 +67,11 @@ interface Idea {
   updated_at?: string
 }
 
+interface PlanSummary {
+  id: string
+  name: string
+}
+
 export default function IdeaEditor() {
   const router = useRouter()
   const params = useParams()
@@ -92,6 +98,8 @@ export default function IdeaEditor() {
     objective: "",
     channels: [] as string[],
   })
+  const [planConnectorOpen, setPlanConnectorOpen] = useState(false)
+  const [connectedPlans, setConnectedPlans] = useState<PlanSummary[]>([])
 
   const saveNote = useCallback(
     async ({ title, content }: { title: string; content: string }) => {
@@ -217,10 +225,38 @@ export default function IdeaEditor() {
     }
   }, [flush])
 
-  useEffect(() => {
-    const fetchIdea = async () => {
+  const loadConnectedPlans = useCallback(async (planIds: string[]) => {
+    if (!planIds || planIds.length === 0) {
+      setConnectedPlans([])
+      return
+    }
+
+    try {
+      const response = await fetch("/api/plans")
+      if (!response.ok) {
+        throw new Error(`Failed to load plans (${response.status})`)
+      }
+      const data = (await response.json()) as Array<{ id: string; name?: string }>
+      const filtered = data.filter((plan) => planIds.includes(plan.id))
+      setConnectedPlans(
+        filtered.map((plan) => ({
+          id: plan.id,
+          name: plan.name || `Plan ${plan.id}`,
+        })),
+      )
+    } catch (err) {
+      console.error("[v0] Error loading connected plans", err)
+      setConnectedPlans(planIds.map((planId) => ({ id: planId, name: `Plan ${planId}` })))
+    }
+  }, [])
+
+  const fetchIdea = useCallback(
+    async (options?: { showLoading?: boolean }) => {
+      const showLoading = options?.showLoading ?? true
       try {
-        setLoading(true)
+        if (showLoading) {
+          setLoading(true)
+        }
         const response = await fetch(`/api/ideas/${params.id}`)
 
         if (response.status === 401 || response.status === 403) {
@@ -235,7 +271,6 @@ export default function IdeaEditor() {
           } else {
             setError("error")
           }
-          setLoading(false)
           return
         }
 
@@ -249,16 +284,24 @@ export default function IdeaEditor() {
           contentRef.current.textContent = safeContent
         }
         setLastSaved(data.updated_at ? new Date(data.updated_at) : new Date())
-        setLoading(false)
+        await loadConnectedPlans(data.linkedPlanIds ?? [])
       } catch (err) {
         console.error("[v0] Error fetching idea:", err)
         setError("error")
-        setLoading(false)
+      } finally {
+        if (showLoading) {
+          setLoading(false)
+        } else {
+          setLoading(false)
+        }
       }
-    }
+    },
+    [params.id, router, setFromServer, loadConnectedPlans],
+  )
 
-    fetchIdea()
-  }, [params.id, router])
+  useEffect(() => {
+    void fetchIdea({ showLoading: true })
+  }, [fetchIdea])
 
   const handleNavigation = async (path: string) => {
     await flush()
@@ -344,7 +387,7 @@ export default function IdeaEditor() {
   }
 
   const openAttachToPlanModal = () => {
-    console.log("[v0] Opening attach to plan modal")
+    setPlanConnectorOpen(true)
   }
 
   const handleInsertNudge = () => {
@@ -503,6 +546,12 @@ export default function IdeaEditor() {
 
           <div className="flex items-center gap-4">
             <button
+              onClick={openAttachToPlanModal}
+              className="flex items-center gap-2 rounded-lg border border-[var(--accent-600)]/40 px-3 py-2 text-sm font-medium text-[var(--accent-700)] hover:border-[var(--accent-600)] hover:bg-[var(--accent-600)]/10 transition-colors"
+            >
+              Conectar a Plan
+            </button>
+            <button
               onClick={handleDelete}
               className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600"
               aria-label="Eliminar idea"
@@ -563,23 +612,34 @@ export default function IdeaEditor() {
           )}
         </div>
 
-        {idea.linkedPlanIds && idea.linkedPlanIds.length > 0 && (
+        {(connectedPlans.length > 0 || (idea.linkedPlanIds?.length ?? 0) > 0) && (
           <div className="mt-6 pt-4 border-t border-[#E5E5E5]">
-            <p className="text-sm text-black/60 mb-2">Vinculada a:</p>
+            <p className="text-sm text-black/60 mb-2">Conectada a:</p>
             <div className="flex flex-wrap gap-2">
-              {idea.linkedPlanIds.map((planId) => (
-                <span
-                  key={planId}
-                  className="text-xs px-2 py-1 rounded-full bg-[var(--accent-600)]/10 text-[var(--accent-600)] cursor-pointer hover:bg-[var(--accent-600)]/20 transition-colors"
-                  onClick={() => router.push(`/planes/${planId}`)}
-                >
-                  Plan #{planId}
-                </span>
-              ))}
+              {(connectedPlans.length > 0
+                ? connectedPlans
+                : (idea.linkedPlanIds ?? []).map((planId) => ({ id: planId, name: `Plan ${planId}` })))
+                .map((plan) => (
+                  <button
+                    key={plan.id}
+                    className="text-xs px-2 py-1 rounded-full bg-[var(--accent-600)]/10 text-[var(--accent-600)] hover:bg-[var(--accent-600)]/20 transition-colors"
+                    onClick={() => router.push(`/planes/${plan.id}`)}
+                  >
+                    {plan.name}
+                  </button>
+                ))}
             </div>
           </div>
         )}
       </div>
+
+      <PlanConnectorModal
+        ideaId={idea.id}
+        ideaTitle={idea.title}
+        open={planConnectorOpen}
+        onClose={() => setPlanConnectorOpen(false)}
+        onAttached={() => void fetchIdea({ showLoading: false })}
+      />
 
       {showCreatePlanModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

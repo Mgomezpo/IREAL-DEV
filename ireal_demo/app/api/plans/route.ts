@@ -136,6 +136,9 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { name, description, start_date, end_date, channels, status } = body;
+    const initialIdeaIds = Array.isArray(body?.initialIdeaIds)
+      ? Array.from(new Set((body.initialIdeaIds as string[]).filter((id) => typeof id === "string")))
+      : [];
 
     const supabase = await createServerClient();
     const {
@@ -191,6 +194,28 @@ export async function POST(request: Request) {
 
       if (sectionsError) throw sectionsError;
 
+      if (initialIdeaIds.length > 0) {
+        const { data: ideas, error: ideasError } = await supabase
+          .from("ideas")
+          .select("id")
+          .in("id", initialIdeaIds)
+          .eq("user_id", user.id);
+
+        if (ideasError) throw ideasError;
+
+        const foundIds = new Set((ideas ?? []).map((idea) => idea.id));
+        const validIdeaIds = initialIdeaIds.filter((id) => foundIds.has(id));
+
+        if (validIdeaIds.length > 0) {
+          const payload = validIdeaIds.map((ideaId) => ({
+            idea_id: ideaId,
+            plan_id: plan.id,
+          }));
+          const { error: attachError } = await supabase.from("ideas_plans").insert(payload);
+          if (attachError) throw attachError;
+        }
+      }
+
       return NextResponse.json(plan);
     }
 
@@ -208,6 +233,7 @@ export async function POST(request: Request) {
           endDate: end_date ?? null,
           channels: channels ?? [],
           status: status ?? "draft",
+          initialIdeaIds,
         }),
       });
 

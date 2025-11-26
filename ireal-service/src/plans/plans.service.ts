@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../common/supabase/supabase.service';
 import { ApiHttpException, buildSuccess } from '../common/envelope';
 import { CreatePlanDto, PLAN_STATUSES } from './dto/create-plan.dto';
@@ -77,6 +77,8 @@ const mapPlan = (record: PlanRow, sections?: SectionRow[]): PlanDto => {
 
 @Injectable()
 export class PlansService {
+  private readonly logger = new Logger(PlansService.name);
+
   constructor(private readonly supabase: SupabaseService) {}
 
   async listPlans(userId: string) {
@@ -220,6 +222,25 @@ export class PlansService {
         'Failed to create default sections',
         HttpStatus.BAD_GATEWAY,
       );
+    }
+
+    const initialIdeaIds = dto.initialIdeaIds ?? [];
+    if (initialIdeaIds.length > 0) {
+      const uniqueIdeaIds = Array.from(new Set(initialIdeaIds));
+      const payload = uniqueIdeaIds.map((ideaId) => ({
+        idea_id: ideaId,
+        plan_id: plan.id,
+      }));
+
+      const { error: attachError } = await client
+        .from('ideas_plans')
+        .insert(payload);
+
+      if (attachError) {
+        this.logger.error(
+          `Failed to link initial ideas to plan ${plan.id}: ${attachError.message}`,
+        );
+      }
     }
 
     return this.getPlanById(userId, plan.id);

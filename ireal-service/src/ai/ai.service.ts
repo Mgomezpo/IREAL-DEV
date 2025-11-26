@@ -2643,11 +2643,11 @@ Requested command: ${command}`;
   private buildPlanAIPrompt(plan: PlanDto, notes: IdeaDto[]): string {
     const planLines = [
       `Nombre: ${plan.name ?? 'Sin nombre'}`,
-      plan.objective ? `Objetivo: ${plan.objective}` : null,
-      plan.targetAudience ? `Audiencia: ${plan.targetAudience}` : null,
+      plan.description ? `Descripcion: ${plan.description}` : null,
+      plan.startDate ? `Inicio: ${plan.startDate}` : null,
+      plan.endDate ? `Fin: ${plan.endDate}` : null,
       plan.channels?.length ? `Canales: ${plan.channels.join(', ')}` : null,
-      plan.constraints ? `Restricciones: ${plan.constraints}` : null,
-      plan.goals?.length ? `Metas: ${plan.goals.join('; ')}` : null,
+      plan.status ? `Estado: ${plan.status}` : null,
     ]
       .filter(Boolean)
       .join('\n')
@@ -2684,7 +2684,7 @@ Requested command: ${command}`;
 
     const { data: plan, error: planError } = await client
       .from('plans')
-      .select('id, user_id, name, description, channels, status')
+      .select('id, user_id, name, description, channels, status, start_date, end_date, created_at, updated_at')
       .eq('id', planId)
       .eq('user_id', userId)
       .maybeSingle();
@@ -2727,8 +2727,10 @@ Requested command: ${command}`;
         description: plan.description ?? null,
         channels: plan.channels ?? null,
         status: plan.status,
-        createdAt: '',
-        updatedAt: '',
+        startDate: plan.start_date ?? null,
+        endDate: plan.end_date ?? null,
+        createdAt: plan.created_at ?? '',
+        updatedAt: plan.updated_at ?? '',
       },
       notes,
     )}

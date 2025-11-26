@@ -33,6 +33,11 @@ export class CreatePlanDto {
   channels?: string[] | null;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  initialIdeaIds?: string[];
+
+  @IsOptional()
   @IsIn(PLAN_STATUSES)
   status?: PlanStatus;
 }

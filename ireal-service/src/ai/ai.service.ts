@@ -36,6 +36,9 @@ import { PlanAssistDto } from './dto/plan-assist.dto';
 import { PublishRequestDto } from './dto/publish.dto';
 import { ExportCalendarDto, ExportFormat } from './dto/export-calendar.dto';
 import { GeneratePlanFormDto } from './dto/generate-plan-form.dto';
+import type { PlanDto } from '../plans/dto/plan-response.dto';
+import type { IdeaDto } from '../ideas/dto/idea-response.dto';
+import type { PlanStrategyResult } from './dto/plan-strategy.dto';
 
 const SUPPORTED_CHANNELS = ['tiktok', 'instagram'] as const;
 
@@ -2635,6 +2638,137 @@ Requested command: ${command}`;
 
       'Usa metadata.nombre exactamente como viene en los datos del usuario y metadata.fecha en formato YYYY-MM-DD.',
     ].join('\n');
+  }
+
+  private buildPlanAIPrompt(plan: PlanDto, notes: IdeaDto[]): string {
+    const planLines = [
+      `Nombre: ${plan.name ?? 'Sin nombre'}`,
+      plan.objective ? `Objetivo: ${plan.objective}` : null,
+      plan.targetAudience ? `Audiencia: ${plan.targetAudience}` : null,
+      plan.channels?.length ? `Canales: ${plan.channels.join(', ')}` : null,
+      plan.constraints ? `Restricciones: ${plan.constraints}` : null,
+      plan.goals?.length ? `Metas: ${plan.goals.join('; ')}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    const notesBlock =
+      notes && notes.length
+        ? notes
+            .map((note, idx) => {
+              const title = note.title || `Nota ${idx + 1}`
+              const body = note.content || ''
+              return `- ${title}: ${body}`.trim()
+            })
+            .join('\n')
+        : 'No hay notas vinculadas.'
+
+    return [
+      'Eres un estratega de contenido senior. Devuelve diagnostico, estrategia y plan de ejecucion conciso.',
+      '',
+      'PLAN DATA:',
+      planLines || 'No hay datos del plan.',
+      '',
+      'LINKED NOTES (contexto y pensamientos del usuario):',
+      notesBlock,
+      '',
+      'INSTRUCCIONES:',
+      '- Usa PLAN DATA como fuente primaria.',
+      '- Usa LINKED NOTES como contexto adicional; si hay contradiccion, prioriza PLAN DATA.',
+      '- Devuelve secciones claras: 1) Diagnostico, 2) Estrategia, 3) Plan de ejecucion (bullets con fases y responsables/outputs).',
+    ].join('\n')
+  }
+
+  async generatePlanStrategy(userId: string, planId: string): Promise<ApiEnvelope<PlanStrategyResult>> {
+    const client = this.supabase.getClient();
+
+    const { data: plan, error: planError } = await client
+      .from('plans')
+      .select('id, user_id, name, description, channels, status')
+      .eq('id', planId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (planError) {
+      throw new ApiHttpException(
+        'PLAN_LOOKUP_FAILED',
+        planError.message ?? 'Failed to fetch plan',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+
+    if (!plan) {
+      throw new ApiHttpException('PLAN_NOT_FOUND', 'Plan not found', HttpStatus.NOT_FOUND);
+    }
+
+    const { data: ideasRows, error: notesError } = await client
+      .from('ideas_plans')
+      .select('ideas(id, title, content, created_at, updated_at)')
+      .eq('plan_id', planId)
+      .eq('ideas.user_id', userId);
+
+    if (notesError) {
+      throw new ApiHttpException(
+        'NOTES_LOOKUP_FAILED',
+        notesError.message ?? 'Failed to fetch notes',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+
+    const notes = (ideasRows ?? [])
+      .map((row: { ideas: IdeaDto | null }) => row.ideas)
+      .filter(Boolean) as IdeaDto[];
+
+    const prompt = `${this.buildPlanAIPrompt(
+      {
+        id: plan.id,
+        userId: plan.user_id,
+        name: plan.name,
+        description: plan.description ?? null,
+        channels: plan.channels ?? null,
+        status: plan.status,
+        createdAt: '',
+        updatedAt: '',
+      },
+      notes,
+    )}
+
+FORMATO DE SALIDA:
+Devuelve UNICAMENTE JSON con las claves "diagnosis", "strategy", "executionPlan". No incluyas markdown ni texto adicional.`;
+
+    const result = await this.callModel('plan_assist', PLAN_MODEL, {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.4,
+        maxOutputTokens: 1024,
+      },
+    });
+
+    let parsed: PlanStrategyResult = {
+      diagnosis: '',
+      strategy: '',
+      executionPlan: '',
+      raw: result.content,
+    };
+
+    try {
+      const json = JSON.parse(result.content);
+      parsed = {
+        diagnosis: json.diagnosis ?? '',
+        strategy: json.strategy ?? '',
+        executionPlan: json.executionPlan ?? '',
+        raw: result.content,
+      };
+    } catch (err) {
+      this.logger.warn('LLM response was not valid JSON, returning raw content');
+    }
+
+    return buildSuccess(parsed, {
+      provider: this.provider,
+      model: result.model,
+      tokens: result.tokens,
+      latencyMs: result.latencyMs,
+    });
   }
 
   private normalizeRoute(route: string): string {

@@ -3,23 +3,13 @@
 import { useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
-import {
-  ArrowLeft,
-  Plus,
-  Search,
-  Loader2,
-  Wand2,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  Calendar as CalendarIcon,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react"
+import { ArrowLeft, Plus, Search, Loader2, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronDown, ChevronUp } from "lucide-react"
 import { PlanConnectorModal } from "@/components/plan-connector-modal"
 import { useNavigationState } from "@/hooks/useNavigationState"
 import { useIdeasData } from "@/hooks/useIdeasData"
-import type { Idea, IdeasGroup } from "../types"
+import { groupNotesByDate } from "@/lib/notes"
+import type { Idea } from "../types"
+import { NotesList } from "./notes-list"
 
 function filterIdeasByCalendar(ideas: Idea[], month: Date, day?: number) {
   // Si no se ha seleccionado un día específico, no filtramos por calendario para mostrar todas las ideas.
@@ -35,102 +25,6 @@ function filterIdeasByCalendar(ideas: Idea[], month: Date, day?: number) {
 
 function getMonthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
-}
-
-function buildIdeaGroups(ideas: Idea[]): IdeasGroup[] {
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const yesterday = new Date(today.getTime() - 86400000)
-  const weekAgo = new Date(today.getTime() - 7 * 86400000)
-
-  const groups: IdeasGroup[] = [
-    {
-      title: "Hoy",
-      dateRange: today.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "long" }),
-      ideas: [],
-      isCollapsed: false,
-    },
-    {
-      title: "Ayer",
-      dateRange: yesterday.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "long" }),
-      ideas: [],
-      isCollapsed: false,
-    },
-    {
-      title: "Semana pasada",
-      dateRange: `${weekAgo.getDate()}-${today.getDate()} ${today.toLocaleDateString("es-ES", { month: "short" })}`,
-      ideas: [],
-      isCollapsed: false,
-    },
-    {
-      title: "Anteriores",
-      dateRange: "Más de una semana",
-      ideas: [],
-      isCollapsed: true,
-    },
-  ]
-
-  ideas.forEach((idea) => {
-    const ideaDate = new Date(idea.created_at || idea.updated_at)
-    const ideaDay = new Date(ideaDate.getFullYear(), ideaDate.getMonth(), ideaDate.getDate())
-
-    if (ideaDay.getTime() === today.getTime()) {
-      groups[0].ideas.push(idea)
-    } else if (ideaDay.getTime() === yesterday.getTime()) {
-      groups[1].ideas.push(idea)
-    } else if (ideaDay >= weekAgo) {
-      groups[2].ideas.push(idea)
-    } else {
-      groups[3].ideas.push(idea)
-    }
-  })
-
-  return groups
-}
-
-interface EnhancedIdeaRowProps {
-  idea: Idea
-  onAction: (idea: Idea, action: string) => void
-}
-
-function EnhancedIdeaRow({ idea, onAction }: EnhancedIdeaRowProps) {
-  const [showActions, setShowActions] = useState(false)
-  const timeLabel = new Date(idea.updated_at).toLocaleTimeString("es-ES", {
-    hour: "numeric",
-    minute: "2-digit",
-  })
-
-  return (
-    <div
-      className="flex items-start justify-between rounded-lg border border-[#E5E5E5] bg-white/60 px-3 py-2 transition hover:bg-white"
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
-    >
-      <button onClick={() => onAction(idea, "open")} className="flex-1 text-left">
-        <p className="font-medium text-black">{idea.title || "Idea sin título"}</p>
-        {idea.channel && <p className="text-xs text-black/50">Canal: {idea.channel}</p>}
-      </button>
-      <div className="flex items-center gap-2 text-xs text-black/50">
-        {timeLabel}
-        <div className={`flex items-center gap-1 transition-opacity ${showActions ? "opacity-100" : "opacity-0"}`}>
-          <button
-            onClick={() => onAction(idea, "convert")}
-            className="rounded-md p-1 text-black/60 hover:bg-black/10"
-            title="Conectar plan"
-          >
-            <Wand2 className="h-3 w-3" />
-          </button>
-          <button
-            onClick={() => onAction(idea, "delete")}
-            className="rounded-md p-1 text-[var(--accent-600)] hover:bg-[var(--accent-600)]/10"
-            title="Eliminar"
-          >
-            <Trash2 className="h-3 w-3" />
-          </button>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 interface CalendarFilterProps {
@@ -247,13 +141,13 @@ export default function EnhancedIdeas() {
     })
   }, [registerState, searchQuery, calendarMonth, selectedDay])
 
-  const { ideas, loading, error, refresh, stats } = useIdeasData(debouncedSearch || undefined)
+  const { ideas: liveIdeas, loading, error, refresh, stats } = useIdeasData(debouncedSearch || undefined)
 
   const filteredIdeas = useMemo(
-    () => filterIdeasByCalendar((ideas as Idea[]) ?? [], calendarMonth, selectedDay ?? undefined),
-    [ideas, calendarMonth, selectedDay],
+    () => filterIdeasByCalendar((liveIdeas as Idea[]) ?? [], calendarMonth, selectedDay ?? undefined),
+    [liveIdeas, calendarMonth, selectedDay],
   )
-  const groups = useMemo(() => buildIdeaGroups(filteredIdeas), [filteredIdeas])
+  const groups = useMemo(() => groupNotesByDate(filteredIdeas), [filteredIdeas])
 
   const handleNavigation = (path: string) => {
     setIsTransitioning(true)
@@ -277,7 +171,7 @@ export default function EnhancedIdeas() {
     }
   }
 
-  const handleIdeaAction = (idea: Idea, action: string) => {
+  const handleIdeaAction = (idea: Idea, action: "open" | "delete" | "convert") => {
     if (action === "delete") {
       setDeleteTarget(idea)
       return
@@ -286,10 +180,7 @@ export default function EnhancedIdeas() {
       setConnectorIdea(idea)
       return
     }
-    if (action === "open") {
-      handleNavigation(`/ideas/${idea.id}`)
-      return
-    }
+    handleNavigation(`/ideas/${idea.id}`)
   }
 
   const goToNewIdea = () => handleNavigation("/ideas/new")
@@ -363,24 +254,12 @@ export default function EnhancedIdeas() {
             No hay ideas para este filtro. Ajusta el mes o crea una nueva idea.
           </div>
         ) : (
-          <div className="space-y-6">
-            {groups.map((group) => (
-              <section key={group.title} className="rounded-xl border border-[#E5E5E5] bg-white/40 p-5">
-                <header className="mb-4 flex items-center justify-between">
-                  <div>
-                    <h2 className="font-semibold text-black">{group.title}</h2>
-                    <p className="text-sm text-black/50">{group.dateRange}</p>
-                  </div>
-                  <span className="text-sm text-black/50">{group.ideas.length} ideas</span>
-                </header>
-                <div className="space-y-3">
-                  {group.ideas.map((idea) => (
-                    <EnhancedIdeaRow key={idea.id} idea={idea} onAction={handleIdeaAction} />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+          <NotesList
+            groups={groups}
+            onSelect={(note) => handleIdeaAction(note as Idea, "open")}
+            onConvert={(note) => handleIdeaAction(note as Idea, "convert")}
+            onDelete={(note) => handleIdeaAction(note as Idea, "delete")}
+          />
         )}
       </div>
 

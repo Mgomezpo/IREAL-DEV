@@ -128,6 +128,33 @@ export class IdeasService {
     });
   }
 
+  async listIdeasByPlan(userId: string, planId: string) {
+    const client = this.supabase.getClient();
+    const { data, error } = await client
+      .from('ideas_plans')
+      .select('ideas(id, user_id, title, content, created_at, updated_at)')
+      .eq('plan_id', planId)
+      .eq('ideas.user_id', userId);
+
+    if (error) {
+      throw new ApiHttpException(
+        'IDEAS_BY_PLAN_FAILED',
+        error.message ?? 'Failed to fetch ideas for plan',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+
+    const ideas = (data ?? [])
+      .map((row: { ideas: IdeaRow | null }) => row.ideas)
+      .filter(Boolean)
+      .map((record) => mapRecordToIdea(record as IdeaRow));
+
+    return buildSuccess<PaginatedIdeasDto['items']>(ideas, {
+      domain: 'ideas',
+      id: planId,
+    });
+  }
+
   async createIdea(userId: string, dto: CreateIdeaDto) {
     const client = this.supabase.getClient();
     const payload: IdeaInsert = {

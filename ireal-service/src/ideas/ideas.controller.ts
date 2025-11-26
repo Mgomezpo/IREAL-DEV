@@ -51,6 +51,12 @@ export class IdeasController {
     return this.ideasService.getIdeaById(userId, id);
   }
 
+  @Get('by-plan/:planId')
+  listByPlan(@Req() req: Request, @Param('planId') planId: string) {
+    const userId = resolveUserId(req);
+    return this.ideasService.listIdeasByPlan(userId, planId);
+  }
+
   @Post()
   @RateLimit('write')
   create(@Req() req: Request, @Body() body: CreateIdeaDto) {

@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { PlansService } from './plans.service';
+import { AiService } from '../ai/ai.service';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { ApiHttpException } from '../common/envelope';
@@ -38,7 +39,7 @@ const resolveUserId = (req: Request): string => {
 
 @Controller('v1/plans')
 export class PlansController {
-  constructor(private readonly plansService: PlansService) {}
+  constructor(private readonly plansService: PlansService, private readonly aiService: AiService) {}
 
   @Get()
   list(@Req() req: Request) {
@@ -57,6 +58,13 @@ export class PlansController {
   create(@Req() req: Request, @Body() dto: CreatePlanDto) {
     const userId = resolveUserId(req);
     return this.plansService.createPlan(userId, dto);
+  }
+
+  @Post(':planId/generate-strategy')
+  @RateLimit('write')
+  generateStrategy(@Req() req: Request, @Param('planId') planId: string) {
+    const userId = resolveUserId(req);
+    return this.aiService.generatePlanStrategy(userId, planId);
   }
 
   @Patch(':planId')

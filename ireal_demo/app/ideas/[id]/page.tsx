@@ -2,10 +2,11 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { NudgeBubble } from "@/components/nudge-bubble"
+import { useAutosaveNote } from "@/hooks/useAutosaveNote"
 
 function hashString(str: string): string {
   let hash = 0
@@ -55,14 +56,14 @@ function hasActionVerb(text: string): boolean {
 interface Idea {
   id: string
   title: string
-  description?: string
+  content?: string
   channel?: "IG" | "YT" | "X" | "LI" | "GEN"
   priority?: "low" | "medium" | "high"
   status: "active" | "archived"
   pinned: boolean
   linkedPlanIds?: string[]
-  createdAt: string
-  updatedAt: string
+  created_at?: string
+  updated_at?: string
 }
 
 export default function IdeaEditor() {
@@ -70,14 +71,10 @@ export default function IdeaEditor() {
   const params = useParams()
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [idea, setIdea] = useState<Idea | null>(null)
-  const [title, setTitle] = useState("")
-  const [content, setContent] = useState("")
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
-  const saveTimeoutRef = useRef<NodeJS.Timeout>()
 
   const [currentNudge, setCurrentNudge] = useState<string | null>(null)
   const [nudgeCount, setNudgeCount] = useState(0)
@@ -96,22 +93,44 @@ export default function IdeaEditor() {
     channels: [] as string[],
   })
 
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
+  const saveNote = useCallback(
+    async ({ title, content }: { title: string; content: string }) => {
+      const response = await fetch(`/api/ideas/${params.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, content }),
+      })
+
+      if (response.status === 401 || response.status === 403) {
+        router.push("/auth")
+        throw new Error("unauthorized")
       }
-      if (nudgeTimeoutRef.current) {
-        clearTimeout(nudgeTimeoutRef.current)
+
+      if (!response.ok) {
+        throw new Error(`Failed to save idea (${response.status})`)
       }
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current)
-      }
-      if (nudgeAbortControllerRef.current) {
-        nudgeAbortControllerRef.current.abort()
-      }
-    }
-  }, [])
+
+      const data = await response.json()
+      const savedAt = data.updated_at ? new Date(data.updated_at) : new Date()
+      setLastSaved(savedAt)
+      setIdea((current) =>
+        current ? { ...current, title, content, updated_at: data.updated_at ?? savedAt.toISOString() } : current,
+      )
+      return data
+    },
+    [params.id, router],
+  )
+
+  const { title, content, status, onTitleChange, onContentChange, setFromServer, flush } = useAutosaveNote({
+    noteId: String(params.id),
+    initialTitle: "",
+    initialContent: "",
+    debounceMs: 1000,
+    saveNote,
+  })
+  const isSaving = status === "saving"
+  const isSaved = status === "saved"
+  const isError = status === "error"
 
   const checkForNudge = async () => {
     if (!contentRef.current) return
@@ -184,6 +203,21 @@ export default function IdeaEditor() {
   }
 
   useEffect(() => {
+    return () => {
+      if (nudgeTimeoutRef.current) {
+        clearTimeout(nudgeTimeoutRef.current)
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+      }
+      if (nudgeAbortControllerRef.current) {
+        nudgeAbortControllerRef.current.abort()
+      }
+      void flush()
+    }
+  }, [flush])
+
+  useEffect(() => {
     const fetchIdea = async () => {
       try {
         setLoading(true)
@@ -206,13 +240,15 @@ export default function IdeaEditor() {
         }
 
         const data = await response.json()
+        const safeContent = data.content || ""
+        const safeTitle = data.title || ""
+
         setIdea(data)
-        setTitle(data.title)
-        setContent(data.description || "")
+        setFromServer({ title: safeTitle, content: safeContent })
         if (contentRef.current) {
-          contentRef.current.textContent = data.description || ""
+          contentRef.current.textContent = safeContent
         }
-        setLastSaved(new Date(data.updated_at))
+        setLastSaved(data.updated_at ? new Date(data.updated_at) : new Date())
         setLoading(false)
       } catch (err) {
         console.error("[v0] Error fetching idea:", err)
@@ -224,7 +260,8 @@ export default function IdeaEditor() {
     fetchIdea()
   }, [params.id, router])
 
-  const handleNavigation = (path: string) => {
+  const handleNavigation = async (path: string) => {
+    await flush()
     setIsTransitioning(true)
     setTimeout(() => {
       router.push(path)
@@ -232,19 +269,11 @@ export default function IdeaEditor() {
   }
 
   const handleTitleChange = (newTitle: string) => {
-    setTitle(newTitle)
-
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
-    }
-
-    saveTimeoutRef.current = setTimeout(() => {
-      handleSave(content, newTitle)
-    }, 2000)
+    onTitleChange(newTitle)
   }
 
   const handleContentChange = (newContent: string) => {
-    setContent(newContent)
+    onContentChange(newContent)
 
     isTypingRef.current = true
 
@@ -260,15 +289,6 @@ export default function IdeaEditor() {
       nudgeAbortControllerRef.current.abort()
     }
 
-    // Autosave logic
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
-    }
-
-    saveTimeoutRef.current = setTimeout(() => {
-      handleSave(newContent, title)
-    }, 2000)
-
     typingTimeoutRef.current = setTimeout(() => {
       isTypingRef.current = false
     }, 1200)
@@ -276,38 +296,6 @@ export default function IdeaEditor() {
     nudgeTimeoutRef.current = setTimeout(() => {
       checkForNudge()
     }, 1200)
-  }
-
-  const handleSave = async (contentToSave: string, titleToSave: string) => {
-    setSaving(true)
-
-    try {
-      const response = await fetch(`/api/ideas/${params.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: titleToSave, description: contentToSave }),
-      })
-
-      if (response.status === 401 || response.status === 403) {
-        console.error("[v0] Unauthorized access, redirecting to auth")
-        router.push("/auth")
-        return
-      }
-
-      if (response.ok) {
-        const data = await response.json()
-        const now = new Date()
-        setLastSaved(now)
-        if (idea) {
-          setIdea({ ...idea, title: titleToSave, description: contentToSave, updatedAt: data.updated_at })
-        }
-        console.log("[v0] Idea auto-saved successfully")
-      }
-    } catch (error) {
-      console.error("[v0] Error saving idea:", error)
-    } finally {
-      setSaving(false)
-    }
   }
 
   const handleDelete = async () => {
@@ -328,7 +316,7 @@ export default function IdeaEditor() {
 
       if (response.ok) {
         console.log("[v0] Idea deleted successfully")
-        handleNavigation("/ideas")
+        await handleNavigation("/ideas")
       } else {
         alert("Error al eliminar la idea")
       }
@@ -365,8 +353,8 @@ export default function IdeaEditor() {
     const selection = window.getSelection()
     if (!selection || selection.rangeCount === 0) {
       // If no selection, append to the end
-      const newContent = content + (content.endsWith("\n") ? "" : "\n") + `  • ${currentNudge}\n`
-      setContent(newContent)
+      const newContent = content + (content.endsWith("\n") ? "" : "\n") + `  - ${currentNudge}\n`
+      onContentChange(newContent)
       if (contentRef.current) {
         contentRef.current.textContent = newContent
       }
@@ -378,18 +366,15 @@ export default function IdeaEditor() {
 
       // Update content state
       const newContent = contentRef.current.textContent || ""
-      setContent(newContent)
+      onContentChange(newContent)
     }
 
     // Dismiss the nudge after inserting
     setCurrentNudge(null)
 
-    // Trigger autosave
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
-    }
-    saveTimeoutRef.current = setTimeout(() => {
-      handleSave(contentRef.current?.textContent || "", title)
+    // Trigger autosave quickly after inserting the nudge
+    setTimeout(() => {
+      void flush()
     }, 500)
   }
 
@@ -502,8 +487,9 @@ export default function IdeaEditor() {
     <div className={`min-h-screen bg-[var(--surface)} ${isTransitioning ? "notebook-exit" : "notebook-enter"}`}>
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-          {saving && "Guardando cambios"}
-          {!saving && lastSaved && `Guardado hace ${Math.floor((Date.now() - lastSaved.getTime()) / 1000)} segundos`}
+          {isSaving && "Guardando cambios"}
+          {isSaved && "Todos los cambios guardados"}
+          {isError && "No se pudieron guardar los cambios"}
         </div>
 
         <div className="flex items-center justify-between mb-8">
@@ -526,8 +512,15 @@ export default function IdeaEditor() {
             </button>
 
             <div className="text-right" aria-live="polite">
-              {saving && <div className="text-xs text-[var(--accent-600)]">Guardando...</div>}
-              {!saving && lastSaved && (
+              {isSaving && <div className="text-xs text-[var(--accent-600)]">Guardando...</div>}
+              {isError && <div className="text-xs text-red-600">Error al guardar</div>}
+              {!isSaving && !isError && isSaved && (
+                <div className="text-xs text-black/40">
+                  Todos los cambios guardados
+                  {lastSaved && ` · ${Math.floor((Date.now() - lastSaved.getTime()) / 1000)}s`}
+                </div>
+              )}
+              {!isSaving && !isError && !isSaved && lastSaved && (
                 <div className="text-xs text-black/40">
                   Guardado hace {Math.floor((Date.now() - lastSaved.getTime()) / 1000)}s
                 </div>

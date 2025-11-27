@@ -30,8 +30,6 @@ export default function NewPlanPage() {
   const [selectedNotes, setSelectedNotes] = useState<IdeaRecord[]>([])
   const [selectorOpen, setSelectorOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [generating, setGenerating] = useState(false)
-  const [aiDoc, setAiDoc] = useState<any | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -77,6 +75,30 @@ export default function NewPlanPage() {
     setError(null)
 
     try {
+      // 1) Generar plan con IA usando notas vinculadas como contexto
+      const aiResponse = await fetch("/api/ai/plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: formData.name,
+          pasion: formData.pasion,
+          motivacion: formData.motivacion,
+          conexion: formData.conexion,
+          vision: formData.vision,
+          tiempo: formData.tiempo,
+          temas: formData.temas
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+          contextNotes: selectedNotes.map((n) => [n.title, n.content].filter(Boolean).join(" - ")).filter(Boolean),
+        }),
+      })
+
+      if (!aiResponse.ok) {
+        throw new Error(`Error al generar plan (${aiResponse.status})`)
+      }
+
+      // 2) Persistir plan con las notas vinculadas
       const response = await fetch("/api/plans", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -96,47 +118,10 @@ export default function NewPlanPage() {
       const plan = await response.json()
       router.push(`/planes/${plan.id}`)
     } catch (err) {
-      console.error("[new-plan] Error creating plan", err)
-      setError("No pudimos crear el plan. Intenta de nuevo.")
+      console.error("[new-plan] Error generating/saving plan", err)
+      setError("No pudimos generar y guardar el plan. Intenta de nuevo.")
     } finally {
       setSubmitting(false)
-    }
-  }
-
-  const handleGenerate = async () => {
-    setGenerating(true)
-    setError(null)
-    setAiDoc(null)
-    try {
-      const response = await fetch("/api/ai/plans", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombre: formData.name,
-          pasion: formData.pasion,
-          motivacion: formData.motivacion,
-          conexion: formData.conexion,
-          vision: formData.vision,
-          tiempo: formData.tiempo,
-          temas: formData.temas
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
-          contextNotes: selectedNotes.map((n) => [n.title, n.content].filter(Boolean).join(" - ")).filter(Boolean),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Error al generar plan (${response.status})`)
-      }
-
-      const payload = await response.json()
-      setAiDoc(payload.data ?? payload)
-    } catch (err) {
-      console.error("[new-plan] Error generating plan", err)
-      setError("No pudimos generar el plan. Intenta de nuevo.")
-    } finally {
-      setGenerating(false)
     }
   }
 
@@ -208,36 +193,6 @@ export default function NewPlanPage() {
               >
                 <Plus className="h-4 w-4" />
                 Agregar más notas
-              </button>
-            </div>
-
-            <div className="rounded-xl border border-[#E5E5E5] bg-white/70 p-6 space-y-3">
-              <h3 className="font-semibold text-black text-sm">Resultado IA (opcional)</h3>
-              {generating ? (
-                <div className="flex items-center gap-2 text-sm text-black/60">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generando plan...
-                </div>
-              ) : aiDoc ? (
-                <div className="space-y-3 text-sm text-black/70 whitespace-pre-wrap">
-                  <p className="font-semibold text-black">Diagnóstico</p>
-                  <p>{aiDoc.diagnosis || "—"}</p>
-                  <p className="font-semibold text-black">Estrategia</p>
-                  <p>{aiDoc.strategy || "—"}</p>
-                  <p className="font-semibold text-black">Plan de ejecución</p>
-                  <p>{aiDoc.executionPlan || "—"}</p>
-                </div>
-              ) : (
-                <p className="text-sm text-black/50">Genera un plan para ver el resultado aquí.</p>
-              )}
-              <button
-                type="button"
-                onClick={() => void handleGenerate()}
-                disabled={generating}
-                className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg text-white bg-[var(--accent-600)] hover:bg-[var(--accent-700)] transition-colors disabled:opacity-50"
-              >
-                {generating && <Loader2 className="h-4 w-4 animate-spin" />}
-                Generar Plan con IA
               </button>
             </div>
           </div>
@@ -350,7 +305,7 @@ export default function NewPlanPage() {
                   className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-sm text-white bg-[var(--accent-600)] rounded-lg hover:bg-[var(--accent-700)] transition-colors disabled:opacity-50"
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Guardar plan
+                  Crear plan con IA
                 </button>
               </div>
             </form>

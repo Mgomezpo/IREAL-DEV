@@ -18,11 +18,12 @@ export default function NewPlanPage() {
 
   const [formData, setFormData] = useState({
     name: "",
+    accountName: "",
     description: "",
     channels: [] as string[],
     pasion: "",
     motivacion: "",
-    conexion: "",
+    audiencia: "",
     vision: "",
     tiempo: "",
     temas: "",
@@ -80,10 +81,10 @@ export default function NewPlanPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nombre: formData.name,
+          nombre: formData.accountName || formData.name,
           pasion: formData.pasion,
           motivacion: formData.motivacion,
-          conexion: formData.conexion,
+          conexion: formData.audiencia,
           vision: formData.vision,
           tiempo: formData.tiempo,
           temas: formData.temas
@@ -200,87 +201,95 @@ export default function NewPlanPage() {
           <div className="lg:col-span-7">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="rounded-xl border border-[#E5E5E5] bg-white/70 p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-black mb-2">Nombre del plan *</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                    className="w-full bg-white/60 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm transition-colors"
-                    placeholder="Ej. Estrategia Q1 / Campaña de lanzamientos"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-black mb-2">Descripción (opcional)</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                    className="w-full bg-white/60 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm transition-colors"
-                    rows={3}
-                    placeholder="Breve resumen del plan"
-                  />
-                </div>
-
                 <div className="grid md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-black mb-2">Nombre del plan *</label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                      className="w-full bg-white/60 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm transition-colors"
+                      placeholder="Ej: Campaña Q1"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-black mb-2">Nombre de la cuenta / creador</label>
+                    <input
+                      type="text"
+                      value={formData.accountName}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, accountName: e.target.value }))}
+                      className="w-full bg-white/60 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm transition-colors"
+                      placeholder="Ej: Miguel / @ireal"
+                    />
+                  </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-black mb-2">Pasión</label>
+                    <label className="block text-sm font-medium text-black mb-2">¿Qué más te gusta hacer / hablar?</label>
                     <input
                       type="text"
                       value={formData.pasion}
                       onChange={(e) => setFormData((prev) => ({ ...prev, pasion: e.target.value }))}
                       className="w-full bg-white/60 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm transition-colors"
-                      placeholder="Ej. Marketing, fitness"
+                      placeholder="Temas que amas"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-black mb-2">Motivación</label>
+                    <label className="block text-sm font-medium text-black mb-2">¿Por qué quieres crear contenido?</label>
                     <input
                       type="text"
                       value={formData.motivacion}
                       onChange={(e) => setFormData((prev) => ({ ...prev, motivacion: e.target.value }))}
                       className="w-full bg-white/60 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm transition-colors"
-                      placeholder="¿Qué te mueve a crear?"
+                      placeholder="Motivación/sueño"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Conexión</label>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-black mb-2">
+                      Describe a la persona con la que quieres conectar
+                    </label>
                     <input
                       type="text"
-                      value={formData.conexion}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, conexion: e.target.value }))}
+                      value={formData.audiencia}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, audiencia: e.target.value }))}
                       className="w-full bg-white/60 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm transition-colors"
-                      placeholder="¿Cómo conectas con tu audiencia?"
+                      placeholder="Su perfil, intereses, qué le importa"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Visión</label>
-                    <input
-                      type="text"
-                      value={formData.vision}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, vision: e.target.value }))}
-                      className="w-full bg-white/60 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm transition-colors"
-                      placeholder="¿A dónde quieres llegar?"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Tiempo disponible</label>
-                    <input
-                      type="text"
-                      value={formData.tiempo}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, tiempo: e.target.value }))}
-                      className="w-full bg-white/60 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm transition-colors"
-                      placeholder="Ej. 5 horas/semana"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Temas (separados por coma)</label>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-black mb-2">
+                      Temas/historias que necesitas compartir
+                    </label>
                     <input
                       type="text"
                       value={formData.temas}
                       onChange={(e) => setFormData((prev) => ({ ...prev, temas: e.target.value }))}
                       className="w-full bg-white/60 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm transition-colors"
-                      placeholder="Tema 1, Tema 2"
+                      placeholder="Lista de temas clave"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-black mb-2">Visión a 6 meses (éxito)</label>
+                    <input
+                      type="text"
+                      value={formData.vision}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, vision: e.target.value }))}
+                      className="w-full bg-white/60 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm transition-colors"
+                      placeholder="¿Qué estaría pasando?"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-black mb-2">Tiempo semanal disponible</label>
+                    <input
+                      type="text"
+                      value={formData.tiempo}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, tiempo: e.target.value }))}
+                      className="w-full bg-white/60 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm transition-colors"
+                      placeholder="Ej: 5 horas/semana"
                     />
                   </div>
                 </div>

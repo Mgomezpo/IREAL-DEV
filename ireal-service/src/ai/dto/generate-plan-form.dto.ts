@@ -74,4 +74,9 @@ export class GeneratePlanFormDto {
   @IsString()
   @Transform(({ value }) => trimValue(value))
   tiempo?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  contextNotes?: string[];
 }

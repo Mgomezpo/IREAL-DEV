@@ -2617,6 +2617,14 @@ Requested command: ${command}`;
       `tiempo: ${dto.tiempo ?? 'No especificado'}`,
 
       '',
+      'CONTEXTO ADICIONAL (Notas vinculadas):',
+      ...(dto.contextNotes && dto.contextNotes.length
+        ? dto.contextNotes.map((note, idx) => `- [Nota ${idx + 1}]: ${note}`)
+        : ['- (sin notas vinculadas)']),
+      '',
+      'Usa este contexto para alinear la estrategia y las ideas sugeridas.',
+
+      '',
 
       'TAREAS:',
 

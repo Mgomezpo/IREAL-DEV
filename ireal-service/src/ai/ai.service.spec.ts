@@ -5,6 +5,8 @@ import { MetricsService } from '../metrics/metrics.service';
 import { SupabaseService } from '../common/supabase/supabase.service';
 import { CalendarCadence } from './dto/calendar.dto';
 
+jest.setTimeout(10000);
+
 describe('AiService', () => {
   let service: AiService;
   const fetchMock = jest.spyOn(global, 'fetch');

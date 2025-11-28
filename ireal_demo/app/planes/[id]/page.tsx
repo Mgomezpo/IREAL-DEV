@@ -28,6 +28,18 @@ import {
 import { FlipCard } from "@/components/flip-card"
 import { ManagePlanNotesModal } from "@/components/manage-plan-notes-modal"
 
+const PLAN_DOC_KEY = (id: string) => `ireal:plans:doc:${id}`
+
+const loadPlanDoc = (id: string) => {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = localStorage.getItem(PLAN_DOC_KEY(id))
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 // Mock plan data
 const mockPlan = {
   id: "1",
@@ -104,6 +116,12 @@ export default function PlanWorkspace() {
   const [strategy, setStrategy] = useState<PlanStrategy | null>(null)
   const [strategyLoading, setStrategyLoading] = useState(false)
   const [strategyError, setStrategyError] = useState<string | null>(null)
+  const [planDoc, setPlanDoc] = useState<any | null>(null)
+  const [docLoading, setDocLoading] = useState(false)
+  const [docError, setDocError] = useState<string | null>(null)
+
+  const planDocObject = typeof planDoc === "string" ? { plan: planDoc } : planDoc
+  const planDocText = planDocObject?.plan || planDocObject?.plan_text || planDocObject?.content || null
 
   useEffect(() => {
     loadPlan()
@@ -150,6 +168,18 @@ export default function PlanWorkspace() {
       const orderedSections = (data.plan_sections || []).slice().sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
       setPlan({ ...data, plan_sections: orderedSections })
       setSections(orderedSections)
+
+      const docFromApi = (data as any).aiDoc || (data as any).ai_doc || (data as any).plan_doc || null
+      const storedDoc = loadPlanDoc(planId)
+      const effectiveDoc = docFromApi ?? storedDoc
+      setPlanDoc(effectiveDoc)
+      if (docFromApi && !storedDoc) {
+        try {
+          localStorage.setItem(PLAN_DOC_KEY(planId), JSON.stringify(docFromApi))
+        } catch (storageError) {
+          console.error("[v0] Error persisting plan doc locally", storageError)
+        }
+      }
 
       // Initialize section content
       const contentMap: { [key: string]: string } = {}
@@ -199,6 +229,48 @@ export default function PlanWorkspace() {
       setStrategyError("No se pudo regenerar la estrategia. Intenta de nuevo.")
     } finally {
       setStrategyLoading(false)
+    }
+  }
+
+  const regeneratePlanDoc = async () => {
+    if (!plan) return
+    try {
+      setDocLoading(true)
+      setDocError(null)
+      const contextNotes = linkedIdeas.map((n) => [n.title, n.content].filter(Boolean).join(" - ")).filter(Boolean)
+
+      const aiResponse = await fetch("/api/ai/plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: (plan as any).accountName || plan.name,
+          pasion: (plan as any).pasion || "",
+          motivacion: (plan as any).motivacion || "",
+          conexion: (plan as any).audiencia || (plan as any).target_audience || "",
+          vision: (plan as any).vision || plan.description || "",
+          tiempo: (plan as any).tiempo || "",
+          temas: Array.isArray((plan as any).temas) ? (plan as any).temas : [],
+          contextNotes,
+        }),
+      })
+
+      if (!aiResponse.ok) {
+        throw new Error(`Error al regenerar plan (${aiResponse.status})`)
+      }
+
+      const aiData = await aiResponse.json()
+      const doc = aiData.data || aiData
+      setPlanDoc(doc)
+      try {
+        localStorage.setItem(PLAN_DOC_KEY(planId), JSON.stringify(doc))
+      } catch (storageError) {
+        console.error("[v0] Error saving regenerated doc locally", storageError)
+      }
+    } catch (error) {
+      console.error("[v0] Error regenerating plan doc", error)
+      setDocError("No se pudo regenerar el documento con IA.")
+    } finally {
+      setDocLoading(false)
     }
   }
 
@@ -563,6 +635,51 @@ export default function PlanWorkspace() {
 
                 {/* Document Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  <div className="rounded-xl border border-[#E5E5E5] bg-white/60 p-5">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <h3 className="font-display text-lg font-semibold text-black">Documento generado con IA</h3>
+                        <p className="text-sm text-black/60">Texto estratégico creado al generar el plan.</p>
+                      </div>
+                      <button
+                        onClick={() => void regeneratePlanDoc()}
+                        disabled={docLoading}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg text-white bg-[var(--accent-600)] hover:bg-[var(--accent-700)] transition-colors disabled:opacity-50"
+                      >
+                        {docLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Regenerar con IA
+                      </button>
+                    </div>
+                    {docError && (
+                      <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-600">{docError}</div>
+                    )}
+                    {planDocObject ? (
+                      <div className="space-y-3 text-sm text-black/70">
+                        {planDocText ? (
+                          <p className="whitespace-pre-line">{planDocText}</p>
+                        ) : (
+                          <pre className="text-xs bg-black/5 rounded-lg p-3 overflow-x-auto">
+                            {JSON.stringify(planDocObject, null, 2)}
+                          </pre>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-[#E5E5E5] bg-white/40 p-4 text-sm text-black/60">
+                        No hay documento generado para este plan todavía.
+                        <div className="mt-3">
+                          <button
+                            onClick={() => void regeneratePlanDoc()}
+                            disabled={docLoading}
+                            className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg text-white bg-[var(--accent-600)] hover:bg-[var(--accent-700)] transition-colors disabled:opacity-50"
+                          >
+                            {docLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                            Regenerar con IA
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {sections.map((section) => (
                     <div key={section.id} className="rounded-xl border border-[#E5E5E5] bg-white/60 p-5">
                       <div className="flex items-center justify-between mb-3">

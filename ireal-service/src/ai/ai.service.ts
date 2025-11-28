@@ -259,11 +259,11 @@ const planIdeaSchema = z.object({
 
   desarrollo: z.string(),
 
-  punto_quiebre: z.string(),
+  punto_quiebre: z.string().optional().default(''),
 
   cta: z.string(),
 
-  copy: z.string(),
+  copy: z.string().optional().default(''),
 
   pilar: z.string(),
 });

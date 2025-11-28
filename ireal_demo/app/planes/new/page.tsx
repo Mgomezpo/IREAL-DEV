@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Loader2, Plus } from "lucide-react"
 import { NotesSelector } from "@/components/ui/notes-selector"
 
+const PLAN_DOC_KEY = (id: string) => `ireal:plans:doc:${id}`
+
 type IdeaRecord = {
   id: string
   title: string
@@ -32,6 +34,7 @@ export default function NewPlanPage() {
   const [selectorOpen, setSelectorOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
   useEffect(() => {
     const loadLinkedNote = async () => {
@@ -74,6 +77,7 @@ export default function NewPlanPage() {
 
     setSubmitting(true)
     setError(null)
+    setStatusMessage(null)
 
     try {
       // 1) Generar plan con IA usando notas vinculadas como contexto
@@ -99,6 +103,8 @@ export default function NewPlanPage() {
         throw new Error(`Error al generar plan (${aiResponse.status})`)
       }
 
+      const aiData = await aiResponse.json()
+
       // 2) Persistir plan con las notas vinculadas
       const response = await fetch("/api/plans", {
         method: "POST",
@@ -117,6 +123,12 @@ export default function NewPlanPage() {
       }
 
       const plan = await response.json()
+      try {
+        localStorage.setItem(PLAN_DOC_KEY(plan.id), JSON.stringify(aiData.data || aiData))
+      } catch (storageError) {
+        console.error("[new-plan] Error saving plan doc to localStorage", storageError)
+      }
+      setStatusMessage("Plan generado con éxito, redirigiendo...")
       router.push(`/planes/${plan.id}`)
     } catch (err) {
       console.error("[new-plan] Error generating/saving plan", err)
@@ -314,9 +326,14 @@ export default function NewPlanPage() {
                   className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-sm text-white bg-[var(--accent-600)] rounded-lg hover:bg-[var(--accent-700)] transition-colors disabled:opacity-50"
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Crear plan con IA
+                  {submitting ? statusMessage || "Generando plan..." : "Crear plan con IA"}
                 </button>
               </div>
+              {statusMessage && (
+                <p className="text-sm text-black/60 text-center" aria-live="polite">
+                  {statusMessage}
+                </p>
+              )}
             </form>
           </div>
         </div>

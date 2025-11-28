@@ -55,6 +55,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const ensureArray = (value: unknown) => {
+      if (Array.isArray(value)) return value.filter(Boolean).map(String)
+      if (typeof value === "string") return value.split(",").map((v) => v.trim()).filter(Boolean)
+      return []
+    }
+
+    const aiPayload = {
+      nombre: body.nombre || body.name || "Creador",
+      pasion: body.pasion || "",
+      motivacion: body.motivacion || "",
+      conexion: body.conexion || body.audiencia || "",
+      vision: body.vision || "",
+      tiempo: body.tiempo || "",
+      temas: ensureArray(body.temas),
+      contextNotes: ensureArray(body.contextNotes),
+    }
+
     try {
       const response = await callService(SERVICE_PATH, {
         method: "POST",
@@ -62,30 +79,23 @@ export async function POST(request: NextRequest) {
           "Content-Type": "application/json",
           "x-user-id": userId,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(aiPayload),
       })
 
-      // If the upstream service answered but with error, use fallback but surface metadata
       if (!response.ok) {
         const errorBody = await response.text().catch(() => "")
         console.error("[v0] Plans AI upstream error", response.status, errorBody)
         const doc = buildFallbackDoc()
         return NextResponse.json({
           data: doc,
-          meta: {
-            fallback: true,
-            upstreamStatus: response.status,
-            upstreamBody: errorBody,
-          },
+          meta: { fallback: true, upstreamStatus: response.status, upstreamBody: errorBody },
         })
       }
 
       const payload = await response.json()
-      return NextResponse.json(payload, { status: response.status })
+      return NextResponse.json(payload, { status: 200 })
     } catch (err) {
-      console.error("[v0] Plans AI service unavailable, using fallback generator", err)
-
-      // Fallback: generate an on-box plan doc so the flow does not break
+      console.error("[v0] Plans AI service unavailable", err)
       const doc = buildFallbackDoc()
       return NextResponse.json({ data: doc, meta: { fallback: true, upstreamStatus: "unreachable" } }, { status: 200 })
     }

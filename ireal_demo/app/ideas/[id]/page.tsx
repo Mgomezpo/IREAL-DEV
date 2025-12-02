@@ -1,10 +1,10 @@
-"use client"
+﻿"use client"
 
 import type React from "react"
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { ArrowLeft, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, Trash2 } from "lucide-react"
 import { NudgeBubble } from "@/components/nudge-bubble"
 import { useAutosaveNote } from "@/hooks/useAutosaveNote"
 import { PlanConnectorModal } from "@/components/plan-connector-modal"
@@ -45,11 +45,11 @@ function countWords(text: string): number {
 
 function endsWithPunctuation(text: string): boolean {
   const trimmed = text.trim()
-  return /[.?!—]$/.test(trimmed)
+  return /[.?!â€”]$/.test(trimmed)
 }
 
 function hasActionVerb(text: string): boolean {
-  const actionVerbs = ["quiero", "voy a", "haré", "necesito", "vamos a", "puedo", "debo", "tengo que"]
+  const actionVerbs = ["quiero", "voy a", "harÃ©", "necesito", "vamos a", "puedo", "debo", "tengo que"]
   const lowerText = text.toLowerCase()
   return actionVerbs.some((verb) => lowerText.includes(verb))
 }
@@ -91,13 +91,6 @@ export default function IdeaEditor() {
   const isTypingRef = useRef(false)
   const nudgeAbortControllerRef = useRef<AbortController | null>(null)
 
-  const [showCreatePlanModal, setShowCreatePlanModal] = useState(false)
-  const [creatingPlan, setCreatingPlan] = useState(false)
-  const [planFormData, setPlanFormData] = useState({
-    name: "",
-    objective: "",
-    channels: [] as string[],
-  })
   const [planConnectorOpen, setPlanConnectorOpen] = useState(false)
   const [connectedPlans, setConnectedPlans] = useState<PlanSummary[]>([])
 
@@ -342,7 +335,7 @@ export default function IdeaEditor() {
   }
 
   const handleDelete = async () => {
-    if (!confirm("¿Estás seguro de que quieres eliminar esta idea?")) {
+    if (!confirm("Â¿EstÃ¡s seguro de que quieres eliminar esta idea?")) {
       return
     }
 
@@ -404,7 +397,7 @@ export default function IdeaEditor() {
     } else {
       // Insert at current cursor position
       const range = selection.getRangeAt(0)
-      const textNode = document.createTextNode(`\n  • ${currentNudge}\n`)
+      const textNode = document.createTextNode(`\n  â€¢ ${currentNudge}\n`)
       range.insertNode(textNode)
 
       // Update content state
@@ -419,65 +412,6 @@ export default function IdeaEditor() {
     setTimeout(() => {
       void flush()
     }, 500)
-  }
-
-  const openCreatePlanModal = () => {
-    setPlanFormData({
-      name: title || "Plan sin título",
-      objective: content.substring(0, 200) || "",
-      channels: [],
-    })
-    setShowCreatePlanModal(true)
-  }
-
-  const handleCreatePlan = async () => {
-    if (!planFormData.name.trim()) {
-      alert("Por favor ingresa un nombre para el plan")
-      return
-    }
-
-    setCreatingPlan(true)
-
-    try {
-      const response = await fetch("/api/plans", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: planFormData.name,
-          description: planFormData.objective,
-          channels: planFormData.channels,
-          status: "draft",
-        }),
-      })
-
-      if (response.status === 401 || response.status === 403) {
-        router.push("/auth")
-        return
-      }
-
-      if (!response.ok) {
-        throw new Error("Error al crear plan")
-      }
-
-      const newPlan = await response.json()
-
-      const linkResponse = await fetch(`/api/ideas/${params.id}/attach-plans`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planIds: [newPlan.id] }),
-      })
-
-      if (!linkResponse.ok) {
-        console.error("[v0] Error linking idea to plan")
-      }
-
-      router.push(`/planes/${newPlan.id}`)
-    } catch (error) {
-      console.error("[v0] Error creating plan:", error)
-      alert("Error al crear el plan")
-    } finally {
-      setCreatingPlan(false)
-    }
   }
 
   if (loading) {
@@ -547,7 +481,7 @@ export default function IdeaEditor() {
           <div className="flex items-center gap-4">
             <button
               onClick={openAttachToPlanModal}
-              className="flex items-center gap-2 rounded-lg border border-[var(--accent-600)]/40 px-3 py-2 text-sm font-medium text-[var(--accent-700)] hover:border-[var(--accent-600)] hover:bg-[var(--accent-600)]/10 transition-colors"
+              className="flex items-center gap-2 rounded-lg border border-[var(--accent-600)]/40 px-3 py-2 text-sm font-medium text-[var(--accent-700)] ring-1 ring-transparent transition-all duration-200 hover:text-white hover:bg-[var(--accent-600)] hover:border-[var(--accent-600)] hover:ring-[var(--accent-600)]/70 hover:shadow-[0_0_0_6px_rgba(138,15,28,0.10)]"
             >
               Conectar a Plan
             </button>
@@ -566,7 +500,7 @@ export default function IdeaEditor() {
               {!isSaving && !isError && isSaved && (
                 <div className="text-xs text-black/40">
                   Todos los cambios guardados
-                  {lastSaved && ` · ${Math.floor((Date.now() - lastSaved.getTime()) / 1000)}s`}
+                  {lastSaved && ` Â· ${Math.floor((Date.now() - lastSaved.getTime()) / 1000)}s`}
                 </div>
               )}
               {!isSaving && !isError && !isSaved && lastSaved && (
@@ -582,7 +516,7 @@ export default function IdeaEditor() {
           type="text"
           value={title}
           onChange={(e) => handleTitleChange(e.target.value)}
-          placeholder="Escribe un título…"
+          placeholder="Escribe un tÃ­tuloâ€¦"
           className="w-full bg-transparent border-none outline-none text-4xl md:text-5xl font-semibold font-display tracking-tight text-black placeholder-black/30 mb-8 focus:ring-0"
         />
 
@@ -594,7 +528,7 @@ export default function IdeaEditor() {
             onKeyDown={handleKeyDown}
             className="w-full min-h-[400px] bg-transparent border-none outline-none text-base leading-7 text-black focus:ring-0 empty:before:content-[attr(data-placeholder)] empty:before:text-black/30"
             style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: "1.75" }}
-            data-placeholder="Empieza a escribir tus ideas aquí..."
+            data-placeholder="Empieza a escribir tus ideas aquÃ­..."
             role="textbox"
             aria-multiline="true"
             suppressContentEditableWarning={true}
@@ -641,92 +575,8 @@ export default function IdeaEditor() {
         onAttached={() => void fetchIdea({ showLoading: false })}
       />
 
-      {showCreatePlanModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--surface)] rounded-xl border border-[#E5E5E5] p-6 max-w-md w-full">
-            <h2 className="font-display text-xl font-semibold text-black mb-4">Crear plan desde idea</h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-black mb-2">Nombre del plan</label>
-                <input
-                  type="text"
-                  value={planFormData.name}
-                  onChange={(e) => setPlanFormData((prev) => ({ ...prev, name: e.target.value }))}
-                  className="w-full bg-white/40 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm transition-colors"
-                  placeholder="Nombre del plan"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-black mb-2">Objetivo</label>
-                <textarea
-                  value={planFormData.objective}
-                  onChange={(e) => setPlanFormData((prev) => ({ ...prev, objective: e.target.value }))}
-                  className="w-full bg-white/40 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm transition-colors"
-                  rows={3}
-                  placeholder="Describe el objetivo del plan"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-black mb-2">Canales (opcional)</label>
-                <div className="flex flex-wrap gap-2">
-                  {["IG", "YT", "TT", "LI", "X", "FB"].map((channel) => (
-                    <button
-                      key={channel}
-                      onClick={() => {
-                        setPlanFormData((prev) => ({
-                          ...prev,
-                          channels: prev.channels.includes(channel)
-                            ? prev.channels.filter((c) => c !== channel)
-                            : [...prev.channels, channel],
-                        }))
-                      }}
-                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                        planFormData.channels.includes(channel)
-                          ? "bg-[var(--accent-600)] text-white border-[var(--accent-600)]"
-                          : "bg-white/40 text-black border-[#E5E5E5] hover:bg-white/60"
-                      }`}
-                    >
-                      {channel}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowCreatePlanModal(false)}
-                disabled={creatingPlan}
-                className="flex-1 px-4 py-2 text-sm text-black bg-white/40 border border-[#E5E5E5] rounded-lg hover:bg-white/60 transition-colors disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleCreatePlan}
-                disabled={creatingPlan}
-                className="flex-1 px-4 py-2 text-sm text-white bg-[var(--accent-600)] rounded-lg hover:bg-[var(--accent-700)] transition-colors disabled:opacity-50"
-              >
-                {creatingPlan ? "Creando..." : "Crear plan"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--surface)] via-[var(--surface)]/95 to-transparent p-6">
-        <div className="max-w-4xl mx-auto flex justify-center">
-          <button
-            onClick={openCreatePlanModal}
-            className="group relative text-base text-black hover:text-white hover:bg-[var(--accent-600)] rounded-sm ring-1 ring-transparent hover:ring-[var(--accent-600)]/70 hover:shadow-[0_0_0_6px_rgba(138,15,28,0.10)] px-6 py-3 transition-all duration-200 font-medium"
-          >
-            <Plus className="h-4 w-4 inline mr-2" />
-            Crear plan desde esta idea
-          </button>
-        </div>
-      </div>
     </div>
   )
 }
+
+

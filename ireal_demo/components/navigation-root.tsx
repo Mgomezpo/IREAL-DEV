@@ -25,7 +25,13 @@ function NavigationRootInner({ children }: { children: React.ReactNode }) {
 
 export function NavigationRoot({ children }: { children: React.ReactNode }) {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[var(--surface)]" />}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[var(--surface)] text-[var(--ink)] flex items-center justify-center">
+          <span className="text-sm text-black/60">Cargando...</span>
+        </div>
+      }
+    >
       <NavigationRootInner>{children}</NavigationRootInner>
     </Suspense>
   )

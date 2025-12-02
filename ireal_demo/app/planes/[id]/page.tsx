@@ -29,6 +29,7 @@ import { FlipCard } from "@/components/flip-card"
 import { ManagePlanNotesModal } from "@/components/manage-plan-notes-modal"
 
 const PLAN_DOC_KEY = (id: string) => `ireal:plans:doc:${id}`
+const PLAN_CHAT_ENABLED = process.env.NEXT_PUBLIC_PLAN_CHAT_ENABLED === "true"
 
 const loadPlanDoc = (id: string) => {
   if (typeof window === "undefined") return null
@@ -38,6 +39,20 @@ const loadPlanDoc = (id: string) => {
   } catch {
     return null
   }
+}
+
+const buildSectionContentFromDoc = (planDoc: any) => {
+  if (!planDoc) return {}
+  const text =
+    typeof planDoc === "string" ? planDoc : planDoc.plan_text || planDoc.plan || planDoc.content || ""
+  const content: Record<string, any> = {
+    plan_doc: planDoc,
+    ai_doc: planDoc,
+  }
+  if (text) {
+    content.text = text
+  }
+  return content
 }
 
 // Mock plan data
@@ -120,6 +135,197 @@ export default function PlanWorkspace() {
   const [docLoading, setDocLoading] = useState(false)
   const [docError, setDocError] = useState<string | null>(null)
 
+  const persistPlanDoc = async (doc: any) => {
+    const summarySectionId =
+      sections.find((s) => s.section_type === "summary")?.id || sections[0]?.id || null
+    if (!summarySectionId) return false
+    try {
+      const response = await fetch(`/api/plans/${planId}/sections/${summarySectionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: buildSectionContentFromDoc(doc) }),
+      })
+      if (!response.ok) throw new Error(`Persist failed (${response.status})`)
+      return true
+    } catch (error) {
+      console.error("[v0] Error persisting plan doc", error)
+      return false
+    }
+  }
+
+  const renderDocumentPanel = (widthClass: string) => (
+    <div className={`${widthClass} flex flex-col bg-[var(--surface)]`}>
+      {/* Document Header */}
+      <div className="p-4 border-b border-[#E5E5E5]">
+        <div className="flex items-center justify-between">
+          <h2 className="font-medium text-black">Documento del plan</h2>
+          {savingSection && (
+            <div className="flex items-center gap-2 text-xs text-black/60">
+              <Save className="h-3 w-3 animate-pulse" />
+              Guardando...
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Document Content */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="rounded-xl border border-[#E5E5E5] bg-white/60 p-5">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <h3 className="font-display text-lg font-semibold text-black">Documento generado con IA</h3>
+              <p className="text-sm text-black/60">Texto estratégico creado al generar el plan.</p>
+            </div>
+            <button
+              onClick={() => void regeneratePlanDoc()}
+              disabled={docLoading}
+              className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg text-white bg-[var(--accent-600)] hover:bg-[var(--accent-700)] transition-colors disabled:opacity-50"
+            >
+              {docLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+              Regenerar con IA
+            </button>
+          </div>
+          {docError && (
+            <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-600">{docError}</div>
+          )}
+          {planDocObject ? (
+            <div className="space-y-3 text-sm text-black/70">
+              {planDocText ? (
+                <p className="whitespace-pre-line">{planDocText}</p>
+              ) : (
+                <pre className="text-xs bg-black/5 rounded-lg p-3 overflow-x-auto">
+                  {JSON.stringify(planDocObject, null, 2)}
+                </pre>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-[#E5E5E5] bg-white/40 p-4 text-sm text-black/60">
+              No hay documento generado para este plan todavía.
+              <div className="mt-3">
+                <button
+                  onClick={() => void regeneratePlanDoc()}
+                  disabled={docLoading}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg text-white bg-[var(--accent-600)] hover:bg-[var(--accent-700)] transition-colors disabled:opacity-50"
+                >
+                  {docLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Regenerar con IA
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {sections.map((section) => (
+          <div key={section.id} className="rounded-xl border border-[#E5E5E5] bg-white/60 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-display text-lg font-semibold text-black">{section.title}</h3>
+              <div className="flex gap-2">
+                <button className="p-1 hover:bg-black/5 rounded transition-colors">
+                  <Sparkles className="h-4 w-4 text-[var(--accent-600)]" />
+                </button>
+                <button className="p-1 hover:bg-black/5 rounded transition-colors">
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <textarea
+              value={sectionContent[section.id] || ""}
+              onChange={(e) => handleSectionChange(section.id, e.target.value)}
+              placeholder="Escribe aquí el contenido de esta sección..."
+              className="w-full min-h-[150px] bg-white/40 border border-[#E5E5E5] focus:border-black focus:ring-0 rounded-lg px-3 py-2 text-sm resize-y transition-colors"
+            />
+          </div>
+        ))}
+        <div className="rounded-xl border border-[#E5E5E5] bg-white/60 p-5">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <h3 className="font-display text-lg font-semibold text-black">Contexto / Notas vinculadas</h3>
+              <p className="text-sm text-black/60">Las notas vinculadas alimentan la estrategia de IA para este plan.</p>
+            </div>
+            <button
+              onClick={() => setNotesModalOpen(true)}
+              className="px-3 py-2 text-xs font-medium rounded-lg border border-[var(--accent-600)]/40 text-[var(--accent-700)] hover:border-[var(--accent-600)] hover:bg-[var(--accent-600)]/10 transition-colors"
+            >
+              Gestionar notas
+            </button>
+          </div>
+          {loadingIdeas ? (
+            <div className="flex items-center gap-2 text-sm text-black/60">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Cargando notas vinculadas...
+            </div>
+          ) : linkedIdeas.length === 0 ? (
+            <p className="text-sm text-black/50">Aún no hay notas vinculadas.</p>
+          ) : (
+            <div className="space-y-2">
+              {linkedIdeas.map((idea) => (
+                <button
+                  key={idea.id}
+                  className="w-full text-left rounded-lg border border-[#E5E5E5] bg-white/70 px-3 py-2 hover:border-[var(--accent-600)]/40 hover:bg-[var(--accent-600)]/5 transition-colors"
+                  onClick={() => router.push(`/ideas/${idea.id}`)}
+                >
+                  <p className="text-sm font-medium text-black">{idea.title || "Idea sin título"}</p>
+                  {idea.content && (
+                    <p className="text-xs text-black/60 line-clamp-2 whitespace-pre-line">{idea.content}</p>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-[#E5E5E5] bg-white/60 p-5">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <h3 className="font-display text-lg font-semibold text-black">Estrategia generada por IA</h3>
+              <p className="text-sm text-black/60">
+                Diagnóstico, estrategia y plan de ejecución basados en el plan y sus notas.
+              </p>
+            </div>
+            <button
+              onClick={() => void regenerateStrategy()}
+              disabled={strategyLoading}
+              className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg text-white bg-[var(--accent-600)] hover:bg-[var(--accent-700)] transition-colors disabled:opacity-50"
+            >
+              {strategyLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+              Regenerar Estrategia
+            </button>
+          </div>
+          {strategyError && (
+            <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-600">{strategyError}</div>
+          )}
+          {strategy ? (
+            <div className="space-y-4">
+              {strategy.diagnosis && (
+                <div>
+                  <h4 className="text-sm font-semibold text-black">Diagnosis</h4>
+                  <p className="text-sm text-black/70 whitespace-pre-line">{strategy.diagnosis}</p>
+                </div>
+              )}
+              {strategy.strategy && (
+                <div>
+                  <h4 className="text-sm font-semibold text-black">Strategy</h4>
+                  <p className="text-sm text-black/70 whitespace-pre-line">{strategy.strategy}</p>
+                </div>
+              )}
+              {strategy.executionPlan && (
+                <div>
+                  <h4 className="text-sm font-semibold text-black">Execution</h4>
+                  <p className="text-sm text-black/70 whitespace-pre-line">{strategy.executionPlan}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-black/50">
+              Aún no se ha generado la estrategia. Usa "Regenerar Estrategia" para obtenerla con el contexto actualizado.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+
   const planDocObject = typeof planDoc === "string" ? { plan: planDoc } : planDoc
   const planDocText = planDocObject?.plan || planDocObject?.plan_text || planDocObject?.content || null
 
@@ -171,9 +377,9 @@ export default function PlanWorkspace() {
 
       const docFromApi = (data as any).aiDoc || (data as any).ai_doc || (data as any).plan_doc || null
       const storedDoc = loadPlanDoc(planId)
-      const effectiveDoc = docFromApi ?? storedDoc
+      const effectiveDoc = storedDoc ?? docFromApi
       setPlanDoc(effectiveDoc)
-      if (docFromApi && !storedDoc) {
+      if (docFromApi && JSON.stringify(docFromApi) !== JSON.stringify(storedDoc)) {
         try {
           localStorage.setItem(PLAN_DOC_KEY(planId), JSON.stringify(docFromApi))
         } catch (storageError) {
@@ -265,6 +471,10 @@ export default function PlanWorkspace() {
         localStorage.setItem(PLAN_DOC_KEY(planId), JSON.stringify(doc))
       } catch (storageError) {
         console.error("[v0] Error saving regenerated doc locally", storageError)
+      }
+      const persisted = await persistPlanDoc(doc)
+      if (!persisted) {
+        setDocError("No pudimos guardar el documento en el plan, pero quedó en este navegador.")
       }
     } catch (error) {
       console.error("[v0] Error regenerating plan doc", error)
@@ -437,6 +647,59 @@ export default function PlanWorkspace() {
     return <PlanBoards plan={plan} onBack={() => setShowBoards(false)} />
   }
 
+  if (!PLAN_CHAT_ENABLED) {
+    return (
+      <div className={`min-h-screen bg-[var(--surface)] ${isTransitioning ? "notebook-exit" : "notebook-enter"}`}>
+        <div className="sticky top-0 z-10 bg-[var(--surface)]/95 backdrop-blur-sm border-b border-[#E5E5E5]">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => handleNavigation("/planes")}
+                className="p-2 hover:bg-black/5 rounded-lg transition-colors"
+                aria-label="Volver a planes"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+
+              <div className="flex-1">
+                <h1 className="font-display text-lg font-semibold text-black">{plan.name}</h1>
+                <div className="flex items-center gap-2 mt-1">
+                  <span
+                    className={`px-2 py-1 text-xs rounded-full ${
+                      plan.status === "active"
+                        ? "bg-green-100 text-green-800 border border-green-200"
+                        : "bg-gray-100 text-gray-800 border border-gray-200"
+                    }`}
+                  >
+                    {plan.status === "active" ? "Activo" : "Borrador"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button className="p-2 hover:bg-black/5 rounded-lg transition-colors">
+                  <Share2 className="h-4 w-4" />
+                </button>
+
+                <button className="p-2 hover:bg-black/5 rounded-lg transition-colors">
+                  <Download className="h-4 w-4" />
+                </button>
+
+                <button className="p-2 hover:bg-black/5 rounded-lg transition-colors">
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="h-[calc(100vh-80px)]">
+          <div className="max-w-7xl mx-auto px-6 py-6 h-full">{renderDocumentPanel("w-full")}</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`min-h-screen bg-[var(--surface)] ${isTransitioning ? "notebook-exit" : "notebook-enter"}`}>
       {/* Top Bar */}
@@ -463,15 +726,6 @@ export default function PlanWorkspace() {
                 >
                   {plan.status === "active" ? "Activo" : "Borrador"}
                 </span>
-                <div className="flex items-center gap-1">
-                  <div className="h-2 w-16 rounded-full bg-black/10">
-                    <div
-                      className="h-2 rounded-full bg-[#D66770] transition-all duration-300"
-                      style={{ width: `${plan.progress?.overall || 0}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-black/60">{plan.progress?.overall || 0}%</span>
-                </div>
               </div>
             </div>
 

@@ -1,4 +1,5 @@
 import type React from "react"
+import type { Metadata } from "next"
 import { Playfair_Display, Inter } from "next/font/google"
 import "./globals.css"
 import { NavigationRoot } from "@/components/navigation-root"
@@ -17,10 +18,15 @@ const inter = Inter({
   display: "swap",
 })
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "IREAL - El workspace mágico para Magos del Contenido",
   description: "Cuaderno mágico para creadores de contenido",
-    generator: 'v0.app'
+  generator: "v0.app",
+  icons: [
+    { rel: "icon", url: "/logos/Sombrero2.png" },
+    { rel: "apple-touch-icon", url: "/logos/Sombrero2.png" },
+  ],
+  themeColor: "#fdf6eb",
 }
 
 export default function RootLayout({

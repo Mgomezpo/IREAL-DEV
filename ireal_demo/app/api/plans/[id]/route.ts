@@ -5,6 +5,13 @@ import { callService } from "@/lib/service-client";
 const SERVICE_ENABLED = process.env.PLANS_SERVICE_ENABLED === "true";
 const SERVICE_BASE_PATH = "/v1/plans";
 
+type PlanSectionRow = {
+  order_index?: number | null;
+  section_type?: string | null;
+  content?: any;
+  [key: string]: any;
+};
+
 const mapSectionFromService = (section: any) => ({
   id: section.id,
   plan_id: section.planId,
@@ -31,6 +38,14 @@ const mapPlanFromService = (plan: any) => ({
   plan_sections: plan.sections ? plan.sections.map(mapSectionFromService) : [],
 });
 
+const extractPlanDocFromSections = (sections?: any[] | null) => {
+  if (!sections?.length) return null;
+  const summary = sections.find((s) => s.section_type === "summary") ?? sections[0];
+  const content = summary?.content;
+  if (!content || typeof content !== "object") return null;
+  return (content as any).plan_doc ?? (content as any).ai_doc ?? null;
+};
+
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const supabase = await createServerClient();
@@ -43,7 +58,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    if (!SERVICE_ENABLED) {
+    const loadPlanFromSupabase = async () => {
       const { data: plan, error } = await supabase
         .from("plans")
         .select(
@@ -64,19 +79,28 @@ export async function GET(request: Request, { params }: { params: { id: string }
         .single();
 
       if (error) throw error;
+      if (!plan) return null;
 
-      if (!plan) {
-        return NextResponse.json({ error: "Plan no encontrado" }, { status: 404 });
-      }
-
-      const sections = (plan.plan_sections || []).slice().sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+      const sections = ((plan.plan_sections || []) as PlanSectionRow[])
+        .slice()
+        .sort((a: PlanSectionRow, b: PlanSectionRow) => (a.order_index ?? 0) - (b.order_index ?? 0));
       const progress = calculatePlanProgress(sections);
+      const plan_doc = extractPlanDocFromSections(sections);
 
-      return NextResponse.json({
+      return {
         ...plan,
         plan_sections: sections,
         progress,
-      });
+        ...(plan_doc ? { plan_doc } : {}),
+      };
+    };
+
+    if (!SERVICE_ENABLED) {
+      const plan = await loadPlanFromSupabase();
+      if (!plan) {
+        return NextResponse.json({ error: "Plan no encontrado" }, { status: 404 });
+      }
+      return NextResponse.json(plan);
     }
 
     try {
@@ -92,21 +116,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
       if (!response.ok) {
         if (response.status >= 500) {
-          console.error("[v0] Plans service unavailable (GET by id). Returning placeholder plan.");
-          return NextResponse.json({
-            id: params.id,
-            user_id: user.id,
-            name: "Plan temporal",
-            description: null,
-            status: "draft",
-            channels: [],
-            start_date: null,
-            end_date: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            plan_sections: [],
-            progress: calculatePlanProgress([]),
-          });
+          console.error("[v0] Plans service unavailable (GET by id). Falling back to Supabase.");
+          const fallbackPlan = await loadPlanFromSupabase().catch(() => null);
+          if (fallbackPlan) {
+            return NextResponse.json(fallbackPlan);
+          }
+          return NextResponse.json({ error: "Plan no encontrado" }, { status: 404 });
         }
         return NextResponse.json(envelope, { status: response.status });
       }
@@ -116,25 +131,24 @@ export async function GET(request: Request, { params }: { params: { id: string }
         return NextResponse.json({ error: "Plan no encontrado" }, { status: 404 });
       }
 
-      const sections = (plan.plan_sections || []).slice().sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+      const sections = (plan.plan_sections || [])
+        .slice()
+        .sort((a: PlanSectionRow, b: PlanSectionRow) => (a.order_index ?? 0) - (b.order_index ?? 0));
       const progress = calculatePlanProgress(sections);
-      return NextResponse.json({ ...plan, plan_sections: sections, progress });
-    } catch (serviceError) {
-      console.error("[v0] Plans service error (GET by id). Returning placeholder plan.", serviceError);
+      const plan_doc = extractPlanDocFromSections(sections);
       return NextResponse.json({
-        id: params.id,
-        user_id: user.id,
-        name: "Plan temporal",
-        description: null,
-        status: "draft",
-        channels: [],
-        start_date: null,
-        end_date: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        plan_sections: [],
-        progress: calculatePlanProgress([]),
+        ...plan,
+        plan_sections: sections,
+        progress,
+        ...(plan_doc ? { plan_doc } : {}),
       });
+    } catch (serviceError) {
+      console.error("[v0] Plans service error (GET by id). Falling back to Supabase.", serviceError);
+      const fallbackPlan = await loadPlanFromSupabase().catch(() => null);
+      if (fallbackPlan) {
+        return NextResponse.json(fallbackPlan);
+      }
+      return NextResponse.json({ error: "Error al cargar plan" }, { status: 500 });
     }
   } catch (error) {
     console.error("[v0] Error fetching plan:", error);

@@ -1,105 +1,74 @@
-﻿"use client"
+"use client"
 
 import type React from "react"
-import { useEffect, useMemo, useState } from "react"
-import Image from "next/image"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Plus, Feather, FileText, CalendarCheck2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import {
-  LayoutDashboard,
-  Feather,
-  FileText,
-  CalendarCheck2,
-  Library,
-  BarChart3,
-  Settings,
-  ChevronRight,
-  Plus,
-  Menu,
-  X,
-  LogOut,
-} from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
 import { useIdeasData } from "@/hooks/useIdeasData"
-import { isIdeaPlanStabilityEnabled } from "@/lib/feature-flags"
 import { HardCard } from "@/components/ui/hard-card"
-
-const mockIdeas = [
-  { id: "i1", title: "Checklist pre-publicaciÃ³n", meta: "Ayer 9:40", href: "/ideas/i1" },
-  { id: "i2", title: "10 tips para creadores", meta: "Hace 2 dÃ­as", href: "/ideas/i2" },
-  { id: "i3", title: "Estrategia de contenido Q1", meta: "Hace 3 dÃ­as", href: "/ideas/i3" },
-]
-
-const mockPlans = [
-  { id: "p1", title: "CampaÃ±a de lanzamiento", status: "Activo", progress: 75, href: "/planes/p1" },
-  { id: "p2", title: "Serie educativa YouTube", status: "Borrador", progress: 30, href: "/planes/p2" },
-]
-
-const mockSummary = {
-  weekCount: 12,
-  yesterday: [
-    { title: "Post Instagram stories", status: "publicado" },
-    { title: "Newsletter semanal", status: "publicado" },
-  ],
-  today: [
-    { title: "Video TikTok", status: "programado" },
-    { title: "Thread Twitter", status: "programado" },
-    { title: "Post LinkedIn", status: "programado" },
-  ],
-  tomorrow: [
-    { title: "Reel Instagram", status: "programado" },
-    { title: "Story highlights", status: "programado" },
-  ],
-}
 
 export default function DashboardPage() {
   const router = useRouter()
-  const [isTransitioning] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const ideaPlanEnabled = isIdeaPlanStabilityEnabled()
   const [promptQuestion, setPromptQuestion] = useState<string | null>(null)
+  const [plans, setPlans] = useState<any[]>([])
+  const [plansLoading, setPlansLoading] = useState(false)
+  const hasLoadedQuestion = useRef(false)
 
   const { ideas: liveIdeas, stats: ideaStats } = useIdeasData()
-  const ideaSource = ideaPlanEnabled ? liveIdeas : mockIdeas
   const formattedIdeas = useMemo(
     () =>
-      ideaSource.slice(0, 3).map((idea: any) => ({
+      (liveIdeas ?? []).slice(0, 3).map((idea: any) => ({
         id: idea.id,
         title: idea.title,
         meta: idea.created_at ? new Date(idea.created_at).toLocaleDateString("es-ES") : idea.meta ?? "",
         href: idea.href ?? `/ideas/${idea.id}`,
       })),
-    [ideaSource],
+    [liveIdeas],
   )
 
   const formattedPlans = useMemo(
     () =>
-      mockPlans.map((plan) => ({
+      (plans ?? []).slice(0, 3).map((plan: any) => ({
         id: plan.id,
-        title: plan.title,
-        meta: `${plan.status} Â· ${plan.progress}%`,
-        href: plan.href,
+        title: plan.name || plan.title || "Plan sin nombre",
+        meta: `${plan.status ?? "Borrador"} · ${plan.progress?.overall ?? 0}%`,
+        href: `/planes/${plan.id}`,
       })),
-    [],
+    [plans],
   )
 
-  const weekCount = ideaPlanEnabled ? ideaStats.thisWeek : mockSummary.weekCount
-  const today = ideaPlanEnabled ? [] : mockSummary.today
-  const yesterday = ideaPlanEnabled ? [] : mockSummary.yesterday
-  const tomorrow = ideaPlanEnabled ? [] : mockSummary.tomorrow
+  const weekCount = ideaStats?.thisWeek ?? 0
+  const today: { title: string; status: string }[] = []
+  const yesterday: { title: string; status: string }[] = []
+  const tomorrow: { title: string; status: string }[] = []
 
-  const handleNavigation = (path: string) => {
-    router.push(path)
-  }
-
+  const handleNavigation = (path: string) => router.push(path)
   const handleNewIdea = () => handleNavigation("/ideas/new")
 
   useEffect(() => {
+    // Try to seed with previous question to avoid flicker while fetching a new one.
+    if (typeof window !== "undefined") {
+      const cached = window.localStorage.getItem("dashboard:promptQuestion")
+      if (cached) {
+        setPromptQuestion(cached)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (hasLoadedQuestion.current) return
+    hasLoadedQuestion.current = true
+
     const loadQuestion = async () => {
       try {
         const res = await fetch("/api/random-question")
         if (!res.ok) throw new Error("Failed to load question")
         const data = await res.json()
-        setPromptQuestion(data?.question ?? null)
+        const question = data?.question ?? null
+        if (question) {
+          setPromptQuestion(question)
+          window?.localStorage?.setItem("dashboard:promptQuestion", question)
+        }
       } catch (error) {
         console.error("[dashboard] Failed to fetch random question", error)
         setPromptQuestion("¿Qué quieres crear hoy?")
@@ -108,11 +77,28 @@ export default function DashboardPage() {
     loadQuestion()
   }, [])
 
-  const mainContent = (
-    <div className="max-w-7xl mx-auto px-6 py-10">
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        setPlansLoading(true)
+        const res = await fetch("/api/plans")
+        if (!res.ok) throw new Error("Failed to load plans")
+        const data = await res.json()
+        setPlans(Array.isArray(data) ? data : [])
+      } catch (error) {
+        console.error("[dashboard] Failed to fetch plans", error)
+        setPlans([])
+      } finally {
+        setPlansLoading(false)
+      }
+    }
+    loadPlans()
+  }, [])
+
+  return (
+    <div className="max-w-7xl mx-auto px-6 py-10 space-y-8">
       <PageHeader
         title={promptQuestion ?? ""}
-        subtitle=""
         actions={
           <button
             onClick={handleNewIdea}
@@ -144,9 +130,9 @@ export default function DashboardPage() {
           items={formattedPlans}
           onViewAll={() => handleNavigation("/planes")}
           emptyState={{
-            message: "Crea tu primer plan y el cuaderno cobrará vida.",
+            message: plansLoading ? "Cargando planes..." : "Crea tu primer plan.",
             cta: "Nuevo plan",
-            onCta: () => handleNavigation("/planes/nuevo"),
+            onCta: () => handleNavigation("/planes/new"),
           }}
           type="plans"
         />
@@ -155,7 +141,7 @@ export default function DashboardPage() {
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CalendarCheck2 className="h-5 w-5 text-black" aria-hidden="true" />
-              <h3 className="font-display text-lg font-semibold text-black">Publicaciones</h3>
+              <h3 className="font-display text-lg font-semibold text-black">Calendario</h3>
             </div>
             <button
               onClick={() => handleNavigation("/calendario?view=week&focus=today")}
@@ -182,147 +168,9 @@ export default function DashboardPage() {
       <SummaryStrip yesterday={yesterday} today={today} tomorrow={tomorrow} onViewMore={() => handleNavigation("/calendario")} />
     </div>
   )
-
-  if (ideaPlanEnabled) {
-    return <section>{mainContent}</section>
-  }
-
-  return (
-    <LegacyDashboard
-      isTransitioning={isTransitioning}
-      isMobileMenuOpen={isMobileMenuOpen}
-      setIsMobileMenuOpen={setIsMobileMenuOpen}
-      handleNavigation={handleNavigation}
-      mainContent={mainContent}
-    />
-  )
 }
 
-function LegacyDashboard({
-  isTransitioning,
-  isMobileMenuOpen,
-  setIsMobileMenuOpen,
-  handleNavigation,
-  mainContent,
-}: {
-  isTransitioning: boolean
-  isMobileMenuOpen: boolean
-  setIsMobileMenuOpen: (value: boolean) => void
-  handleNavigation: (path: string) => void
-  mainContent: React.ReactNode
-}) {
-  const BORDER = "#e7d9c6"
-  const SOFT_BG = "#fdf5eb"
-  const ACCENT_TEXT = "#1e130b"
-  const MUTED_TEXT = "#5c4a3d"
-
-  const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-    { icon: Feather, label: "Ideas", path: "/ideas" },
-    { icon: FileText, label: "Planes", path: "/planes" },
-    { icon: CalendarCheck2, label: "Calendario", path: "/calendario" },
-    { icon: Library, label: "Biblioteca", path: "/biblioteca" },
-    { icon: BarChart3, label: "Analytics", path: "/analytics" },
-  ]
-
-  const renderNav = (onNavigate?: () => void) =>
-    navItems.map((item) => {
-      const Icon = item.icon
-      return (
-        <button
-          key={item.path}
-          onClick={() => {
-            handleNavigation(item.path)
-            onNavigate?.()
-          }}
-          className="w-full flex items-center gap-3 px-5 py-3 text-left transition-colors rounded-lg text-[#5c4a3d] hover:text-[#1e130b] hover:bg-[#f9efe0]"
-        >
-          <Icon className="h-4 w-4" aria-hidden="true" />
-          <span className="font-medium">{item.label}</span>
-        </button>
-      )
-    })
-
-  return (
-    <div className={`min-h-screen bg-[var(--surface)] ${isTransitioning ? "notebook-exit" : "notebook-enter"}`}>
-      <div
-        className="hidden lg:flex fixed left-0 top-0 bottom-0 w-72 flex-col border-r"
-        style={{ borderColor: BORDER, backgroundColor: SOFT_BG, color: ACCENT_TEXT }}
-      >
-        <button
-          onClick={() => handleNavigation("/dashboard")}
-          className="flex items-center gap-3 p-6 focus:outline-none focus-visible:ring-2"
-          style={{ color: ACCENT_TEXT, borderColor: BORDER }}
-        >
-          <Image src="/brand/logo-full.svg" alt="IREAL" width={136} height={32} priority />
-        </button>
-
-        <div className="flex-1 px-4 space-y-1 text-sm" style={{ color: MUTED_TEXT }}>
-          {renderNav()}
-        </div>
-
-        <div className="px-6 py-5 border-t text-sm" style={{ borderColor: BORDER, color: MUTED_TEXT }}>
-          <button
-            onClick={() => handleNavigation("/configuracion")}
-            className="flex items-center gap-2 hover:text-[#1e130b] transition-colors"
-          >
-            <Settings className="h-4 w-4" />
-            ConfiguraciÃ³n
-          </button>
-        </div>
-      </div>
-
-      <div
-        className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 backdrop-blur"
-        style={{ borderBottom: `1px solid ${BORDER}`, backgroundColor: `${SOFT_BG}E6` }}
-      >
-        <button
-          onClick={() => setIsMobileMenuOpen(true)}
-          className="rounded-md p-2 focus:outline-none focus-visible:ring-2"
-          style={{ color: MUTED_TEXT }}
-          aria-label="Abrir menÃº"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-        <Image src="/brand/logo-full.svg" alt="IREAL" width={120} height={30} priority />
-        <button
-          onClick={() => handleNavigation("/configuracion")}
-          className="rounded-md p-2 focus:outline-none focus-visible:ring-2"
-          style={{ color: MUTED_TEXT }}
-        >
-          <Settings className="h-5 w-5" />
-        </button>
-      </div>
-
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-72 p-6 space-y-6" style={{ backgroundColor: SOFT_BG }}>
-            <div className="flex items-center justify-between">
-              <Image src="/brand/logo-full.svg" alt="IREAL" width={120} height={30} priority />
-              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2" style={{ color: MUTED_TEXT }}>
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="space-y-2 text-sm" style={{ color: MUTED_TEXT }}>
-              {renderNav(() => setIsMobileMenuOpen(false))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="lg:ml-72 min-h-screen">{mainContent}</div>
-    </div>
-  )
-}
-
-function PageHeader({
-  title,
-  actions,
-}: {
-  title: string
-  actions?: React.ReactNode
-}) {
+function PageHeader({ title, actions }: { title: string; actions?: React.ReactNode }) {
   return (
     <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
       <div>
@@ -398,7 +246,7 @@ function SummaryStrip({
   const sections = [
     { label: "Ayer", items: yesterday },
     { label: "Hoy", items: today },
-    { label: "Manana", items: tomorrow },
+    { label: "Mañana", items: tomorrow },
   ]
   return (
     <HardCard className="mt-10">
@@ -421,6 +269,7 @@ function SummaryStrip({
                   {item.title} - <span className="capitalize">{item.status}</span>
                 </li>
               ))}
+              {section.items.length === 0 && <li className="text-sm text-black/50">Sin elementos</li>}
             </ul>
           </div>
         ))}

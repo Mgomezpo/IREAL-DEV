@@ -18,8 +18,13 @@ CREATE TABLE IF NOT EXISTS ideas (
 CREATE TABLE IF NOT EXISTS plans (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT 'Plan sin nombre',
+  title TEXT,
   description TEXT,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'archived')),
+  channels TEXT[] DEFAULT '{}',
+  start_date DATE,
+  end_date DATE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -28,8 +33,10 @@ CREATE TABLE IF NOT EXISTS plans (
 CREATE TABLE IF NOT EXISTS plan_sections (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   plan_id UUID NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
-  content TEXT NOT NULL DEFAULT '',
+  content JSONB DEFAULT '{}',
+  section_type TEXT,
   order_index INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

@@ -1,32 +1,14 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { ArrowLeft, BarChart3, TrendingUp } from "lucide-react"
+import { BarChart3, TrendingUp } from "lucide-react"
 
 export default function Analytics() {
-  const router = useRouter()
-  const [isTransitioning, setIsTransitioning] = useState(false)
-
-  const handleNavigation = (path: string) => {
-    setIsTransitioning(true)
-    setTimeout(() => {
-      router.push(path)
-    }, 350)
-  }
+  const isTransitioning = false
 
   return (
     <div className={`min-h-screen bg-[var(--surface)] ${isTransitioning ? "notebook-exit" : "notebook-enter"}`}>
       <div className="max-w-6xl mx-auto px-6 py-8">
-        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <button
-            onClick={() => handleNavigation("/dashboard")}
-            className="p-2 hover:bg-black/5 rounded-lg transition-colors"
-            aria-label="Volver al dashboard"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
           <div className="flex-1">
             <h1 className="text-2xl md:text-3xl tracking-tight font-semibold font-display text-black">Analytics</h1>
             <p className="text-black/70 mt-1 text-sm md:text-base leading-7">
@@ -35,7 +17,6 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* Empty State */}
         <div className="text-center py-12">
           <div className="w-16 h-16 bg-black/5 rounded-full flex items-center justify-center mx-auto mb-4">
             <BarChart3 className="h-8 w-8 text-black/40" />
@@ -46,7 +27,7 @@ export default function Analytics() {
           </p>
           <div className="flex items-center justify-center gap-2 text-sm text-black/40">
             <TrendingUp className="h-4 w-4" />
-            <span>Próximamente: insights con IA</span>
+            <span>proximamente en siguientes versiones</span>
           </div>
         </div>
       </div>

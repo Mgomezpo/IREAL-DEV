@@ -104,6 +104,7 @@ export default function NewPlanPage() {
       }
 
       const aiData = await aiResponse.json()
+      const planDoc = aiData.data || aiData
 
       // 2) Persistir plan con las notas vinculadas
       const response = await fetch("/api/plans", {
@@ -115,6 +116,7 @@ export default function NewPlanPage() {
           channels: formData.channels,
           status: "draft",
           initialIdeaIds: selectedNotes.map((n) => n.id),
+          planDoc,
         }),
       })
 
@@ -124,7 +126,7 @@ export default function NewPlanPage() {
 
       const plan = await response.json()
       try {
-        localStorage.setItem(PLAN_DOC_KEY(plan.id), JSON.stringify(aiData.data || aiData))
+        localStorage.setItem(PLAN_DOC_KEY(plan.id), JSON.stringify(planDoc))
       } catch (storageError) {
         console.error("[new-plan] Error saving plan doc to localStorage", storageError)
       }
@@ -142,6 +144,7 @@ export default function NewPlanPage() {
 
   return (
     <div className="min-h-screen bg-[var(--surface)]">
+      {submitting && <LoadingOverlay text={statusMessage || "Generando plan con IA..."} />}
       <div className="max-w-5xl mx-auto px-6 py-10 space-y-8">
         <div className="flex items-center gap-3">
           <button
@@ -153,7 +156,6 @@ export default function NewPlanPage() {
           </button>
           <div>
             <h1 className="text-3xl font-semibold font-display text-black">Crear plan</h1>
-            <p className="text-black/60 text-sm">Vincula notas para darle contexto a la IA desde el inicio.</p>
           </div>
         </div>
 
@@ -163,7 +165,6 @@ export default function NewPlanPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="font-display text-lg font-semibold text-black">Contexto (Notas)</h2>
-                  <p className="text-sm text-black/60">Vincula notas para que la IA respete tus ideas.</p>
                 </div>
                 <span className="text-xs text-black/60 bg-black/5 px-3 py-1 rounded-full">
                   {selectedCount} seleccionada{selectedCount === 1 ? "" : "s"}
@@ -237,7 +238,7 @@ export default function NewPlanPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-black mb-2">¿Qué más te gusta hacer / hablar?</label>
+                    <label className="block text-sm font-medium text-black mb-2">¿De qué quieres hablar?</label>
                     <input
                       type="text"
                       value={formData.pasion}
@@ -346,6 +347,17 @@ export default function NewPlanPage() {
             setSelectorOpen(false)
           }}
         />
+      </div>
+    </div>
+  )
+}
+
+function LoadingOverlay({ text = "Generando plan con IA..." }: { text?: string }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center px-6">
+      <div className="hard-shadow rounded-xl bg-white/90 border border-black/10 px-5 py-4 flex items-center gap-3">
+        <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-600)]" />
+        <div className="text-sm text-black font-medium">{text}</div>
       </div>
     </div>
   )

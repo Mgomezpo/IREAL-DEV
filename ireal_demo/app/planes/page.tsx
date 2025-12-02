@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import type React from "react"
 import { useEffect, useMemo, useState } from "react"
@@ -40,6 +40,28 @@ export default function Planes() {
   const [viewerPlan, setViewerPlan] = useState<Plan | null>(null)
 
   useEffect(() => {
+    const prev = document.body.style.overflow
+    if (viewerPlan) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = prev
+    }
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [viewerPlan])
+
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow
+    if (viewerPlan) {
+      document.body.style.overflow = "hidden"
+    }
+    return () => {
+      document.body.style.overflow = originalOverflow
+    }
+  }, [viewerPlan])
+
+  useEffect(() => {
     fetchPlans()
   }, [])
 
@@ -63,7 +85,19 @@ export default function Planes() {
       }
 
       const data = (await response.json()) as Plan[]
-      const withDocs = data.map((p) => ({ ...p, aiDoc: loadPlanDoc(p.id) }))
+      const withDocs = data.map((p) => {
+        const serverDoc = (p as any).plan_doc ?? (p as any).ai_doc
+        const storedDoc = loadPlanDoc(p.id)
+        const effectiveDoc = storedDoc ?? serverDoc ?? null
+        if (serverDoc && JSON.stringify(serverDoc) !== JSON.stringify(storedDoc)) {
+          try {
+            localStorage.setItem(PLAN_DOC_KEY(p.id), JSON.stringify(serverDoc))
+          } catch (err) {
+            console.error("[plans] Error persisting plan doc locally", err)
+          }
+        }
+        return { ...p, plan_doc: effectiveDoc, aiDoc: effectiveDoc }
+      })
       setPlans(withDocs)
     } catch (err) {
       console.error("[plans] Error fetching plans:", err)
@@ -188,7 +222,7 @@ export default function Planes() {
                     >
                       Ver documento
                     </button>
-                    <button className="p-2 hover:bg-black/5 rounded-lg transition-colors" title="Más opciones">
+                    <button className="p-2 hover:bg-black/5 rounded-lg transition-colors" title="M├ís opciones">
                       <MoreVertical className="h-4 w-4 text-black/60" />
                     </button>
                   </div>
@@ -211,8 +245,8 @@ function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="hard-shadow animate-fade-in-up max-w-5xl w-full bg-[var(--surface)]">
-        <div className="p-6 space-y-4">
+      <div className="hard-shadow animate-fade-in-up max-w-5xl w-full max-h-[85vh] bg-[var(--surface)] overflow-hidden rounded-xl">
+        <div className="p-6 space-y-4 overflow-y-auto max-h-[85vh] pr-4">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="font-display text-2xl font-semibold text-black">Documento del plan</h2>
@@ -249,8 +283,8 @@ function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
                   <p className="text-sm text-black/70 whitespace-pre-line">
                     {docObject.perfil_audiencia?.descripcion_general}
                   </p>
-                  <p className="text-sm text-black/70">Demografía: {docObject.perfil_audiencia?.demografia}</p>
-                  <p className="text-sm text-black/70">Psicografía: {docObject.perfil_audiencia?.psicografia}</p>
+                  <p className="text-sm text-black/70">Demograf├¡a: {docObject.perfil_audiencia?.demografia}</p>
+                  <p className="text-sm text-black/70">Psicograf├¡a: {docObject.perfil_audiencia?.psicografia}</p>
                   <p className="text-sm text-black/70 whitespace-pre-line">
                     Pain points:
                     {"\n"}
@@ -271,7 +305,7 @@ function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
                       <div key={idx} className="rounded-lg bg-white/70 border border-black/10 p-3">
                         <p className="font-semibold text-black">{p.nombre}</p>
                         <p className="text-sm text-black/70">{p.descripcion}</p>
-                        <p className="text-sm text-black/60">Propósito: {p.proposito}</p>
+                        <p className="text-sm text-black/60">Prop├│sito: {p.proposito}</p>
                       </div>
                     ))}
                   </div>
@@ -292,7 +326,7 @@ function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
                       </div>
                     ))}
                     {docObject.ideas_contenido && docObject.ideas_contenido.length > 10 && (
-                      <p className="text-sm text-black/60">Mostrando 10 ideas. Hay más en el documento.</p>
+                      <p className="text-sm text-black/60">Mostrando 10 ideas. Hay m├ís en el documento.</p>
                     )}
                   </div>
                 </Section>
@@ -312,7 +346,7 @@ function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
                       Formatos: {(docObject.recomendaciones?.formatos_prioritarios || []).join(", ")}
                     </p>
                     <p className="text-sm text-black/70">
-                      Métricas: {(docObject.recomendaciones?.metricas_clave || []).join(", ")}
+                      M├®tricas: {(docObject.recomendaciones?.metricas_clave || []).join(", ")}
                     </p>
                     <p className="text-sm text-black/70 whitespace-pre-line">{docObject.recomendaciones?.consejos_magicos}</p>
                   </div>
@@ -334,3 +368,4 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </div>
   )
 }
+

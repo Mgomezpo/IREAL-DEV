@@ -178,7 +178,6 @@ export class PlansService {
       name: dto.name.trim(),
       description: dto.description ?? null,
       status: dto.status ?? 'draft',
-      channels: dto.channels ?? null,
       start_date: dto.startDate ?? null,
       end_date: dto.endDate ?? null,
     };
@@ -266,7 +265,7 @@ export class PlansService {
     }
 
     if (dto.channels !== undefined) {
-      updatePayload.channels = dto.channels ?? null;
+      // Column may not exist in some schemas; skip to avoid PGRST204 errors
     }
 
     if (dto.startDate !== undefined) {

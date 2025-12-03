@@ -3,7 +3,7 @@
 import type React from "react"
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Plus, FileText, Search, Filter, MoreVertical, Calendar, X } from "lucide-react"
+import { ArrowLeft, Plus, FileText, Search, Filter, MoreVertical, Calendar, X, Trash2 } from "lucide-react"
 import { useNavigationState } from "@/hooks/useNavigationState"
 import { HardCard } from "@/components/ui/hard-card"
 
@@ -119,6 +119,28 @@ export default function Planes() {
     [plans, searchQuery],
   )
 
+  const deletePlan = async (planId: string) => {
+    const confirmDelete = window.confirm("¿Eliminar este plan? Esta acción no se puede deshacer.")
+    if (!confirmDelete) return
+
+    try {
+      const response = await fetch(`/api/plans/${planId}`, { method: "DELETE" })
+      if (!response.ok) {
+        throw new Error("No se pudo eliminar el plan")
+      }
+      try {
+        localStorage.removeItem(PLAN_DOC_KEY(planId))
+      } catch (err) {
+        console.warn("[plans] No se pudo limpiar el doc en localStorage", err)
+      }
+      setPlans((prev) => prev.filter((p) => p.id !== planId))
+      setViewerPlan(null)
+    } catch (err) {
+      console.error("[plans] Error deleting plan:", err)
+      alert("No pudimos eliminar el plan. Intenta de nuevo.")
+    }
+  }
+
   const getStatusBadge = (status?: string) => {
     const styles: Record<string, string> = {
       draft: "bg-yellow-100 text-yellow-800 border-yellow-200",
@@ -233,28 +255,53 @@ export default function Planes() {
         )}
       </div>
 
-      {viewerPlan && <PlanViewer plan={viewerPlan} onClose={() => setViewerPlan(null)} />}
+      {viewerPlan && (
+        <PlanViewer plan={viewerPlan} onClose={() => setViewerPlan(null)} onDelete={() => deletePlan(viewerPlan.id)} />
+      )}
     </div>
   )
 }
 
-function PlanViewer({ plan, onClose }: { plan: Plan; onClose: () => void }) {
+function PlanViewer({ plan, onClose, onDelete }: { plan: Plan; onClose: () => void; onDelete: () => void }) {
   const doc = plan.aiDoc || loadPlanDoc(plan.id)
   const docObject = typeof doc === "string" ? { plan: doc } : doc || {}
   const planText = docObject.plan || docObject.plan_text || null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="hard-shadow animate-fade-in-up max-w-5xl w-full max-h-[85vh] bg-[var(--surface)] overflow-hidden rounded-xl">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="hard-shadow animate-fade-in-up max-w-5xl w-full max-h-[85vh] bg-[var(--surface)] overflow-hidden rounded-xl"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className="p-6 space-y-4 overflow-y-auto max-h-[85vh] pr-4">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="font-display text-2xl font-semibold text-black">Documento del plan</h2>
               <p className="text-black/60 text-sm">{plan.name}</p>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-black/5 rounded-lg transition-colors" aria-label="Cerrar">
-              <X className="h-5 w-5 text-black/60" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onDelete}
+                className="rounded-md p-2 text-[var(--accent-600)] hover:bg-[var(--accent-600)]/10 transition-colors"
+                title="Eliminar plan"
+                aria-label="Eliminar plan"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-black/5 rounded-lg transition-colors"
+                aria-label="Cerrar"
+              >
+                <X className="h-5 w-5 text-black/60" />
+              </button>
+            </div>
           </div>
 
           {!doc ? (

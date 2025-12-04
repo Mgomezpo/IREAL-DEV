@@ -1,8 +1,8 @@
-import { updateSession } from "@/lib/supabase/middleware"
-import type { NextRequest } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 
-export function middleware(request: NextRequest) {
-  return updateSession(request)
+// Edge-safe middleware: pass-through (auth handled in protected layouts/handlers).
+export function middleware(_request: NextRequest) {
+  return NextResponse.next()
 }
 
 export const config = {

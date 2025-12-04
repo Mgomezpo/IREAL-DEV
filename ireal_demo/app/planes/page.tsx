@@ -129,7 +129,7 @@ export default function Planes() {
       active: "Activo",
       archived: "Archivado",
     }
-    if (!status) return null
+    if (!status || status === "draft") return null
     return (
       <span className={`px-2 py-1 text-xs font-medium rounded-full border ${styles[status] ?? ""}`}>
         {labels[status] ?? status}

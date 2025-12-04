@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import type React from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -31,7 +31,7 @@ export default function DashboardPage() {
       (plans ?? []).slice(0, 3).map((plan: any) => ({
         id: plan.id,
         title: plan.name || plan.title || "Plan sin nombre",
-        meta: `${plan.status ?? "Borrador"} · ${plan.progress?.overall ?? 0}%`,
+        meta: plan.progress?.overall != null && plan.progress.overall > 0 ? `${plan.progress.overall}%` : "",
         href: `/planes/${plan.id}`,
       })),
     [plans],
@@ -277,3 +277,4 @@ function SummaryStrip({
     </HardCard>
   )
 }
+

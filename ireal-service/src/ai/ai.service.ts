@@ -2529,18 +2529,11 @@ Requested command: ${command}`;
 
       '',
 
-      'Ideas de contenido (primeras 10):',
+      'Ideas de contenido:',
 
-      ...plan.ideas_contenido
-        .slice(0, 10)
-        .map(
-          (idea) =>
-            `#${idea.numero} ${idea.tema} | Hook: ${idea.hook} | CTA: ${idea.cta}`,
-        ),
-
-      plan.ideas_contenido.length > 10
-        ? `Total de ideas: ${plan.ideas_contenido.length}. Revisa ideas_contenido para el resto.`
-        : '',
+      ...plan.ideas_contenido.map(
+        (idea) => `#${idea.numero} ${idea.tema} | Hook: ${idea.hook} | CTA: ${idea.cta}`,
+      ),
 
       '',
 

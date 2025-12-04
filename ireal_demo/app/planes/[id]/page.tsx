@@ -20,16 +20,90 @@ type PlanResponse = {
   plan_sections?: PlanSection[]
 }
 
+const renderStructuredPlan = (doc: any): string | null => {
+  if (!doc || typeof doc !== "object") return null
+  try {
+    const lines: string[] = []
+    const meta = doc.metadata ?? {}
+    if (meta.nombre || meta.fecha) {
+      lines.push(`Plan de contenido para ${meta.nombre ?? "Creador"} (${meta.fecha ?? ""})`.trim())
+    }
+    if (doc.ruta_seleccionada) {
+      lines.push(`Ruta seleccionada: ${doc.ruta_seleccionada}`)
+    }
+    if (doc.explicacion_ruta) {
+      lines.push("", "Explicacion de la ruta:", doc.explicacion_ruta)
+    }
+    const perfil = doc.perfil_audiencia ?? {}
+    if (Object.keys(perfil).length) {
+      lines.push("", "Perfil de audiencia:")
+      if (perfil.descripcion_general) lines.push(`- Descripcion general: ${perfil.descripcion_general}`)
+      if (perfil.demografia) lines.push(`- Demografia: ${perfil.demografia}`)
+      if (perfil.psicografia) lines.push(`- Psicografia: ${perfil.psicografia}`)
+      if (perfil.pain_points?.length) lines.push(`- Pain points: ${perfil.pain_points.join("; ")}`)
+      if (perfil.aspiraciones?.length) lines.push(`- Aspiraciones: ${perfil.aspiraciones.join("; ")}`)
+      if (perfil.lenguaje_recomendado) lines.push(`- Lenguaje recomendado: ${perfil.lenguaje_recomendado}`)
+    }
+    const fundamentos = doc.fundamentos ?? {}
+    if (fundamentos.pilares_contenido?.length) {
+      lines.push("", "Fundamentos:")
+      fundamentos.pilares_contenido.forEach((p: any, idx: number) => {
+        lines.push(
+          `Pilar ${idx + 1}: ${p.nombre} - ${p.descripcion}${
+            p.proposito ? ` (proposito: ${p.proposito})` : ""
+          }`.trim(),
+        )
+      })
+    }
+    if (fundamentos.tono_voz) lines.push(`Tono de voz: ${fundamentos.tono_voz}`)
+    if (fundamentos.propuesta_valor) lines.push(`Propuesta de valor: ${fundamentos.propuesta_valor}`)
+
+    if (doc.ideas_contenido?.length) {
+      lines.push("", "Ideas de contenido:")
+      doc.ideas_contenido.forEach((idea: any) => {
+        const parts = [
+          `#${idea.numero ?? ""} ${idea.tema ?? ""}`.trim(),
+          idea.hook ? `Hook: ${idea.hook}` : "",
+          idea.desarrollo ? `Desarrollo: ${idea.desarrollo}` : "",
+          idea.punto_quiebre ? `Punto de quiebre: ${idea.punto_quiebre}` : "",
+          idea.cta ? `CTA: ${idea.cta}` : "",
+          idea.copy ? `Copy: ${idea.copy}` : "",
+          idea.pilar ? `Pilar: ${idea.pilar}` : "",
+        ].filter(Boolean)
+        lines.push(parts.join(" | "))
+      })
+    }
+
+    const rec = doc.recomendaciones ?? {}
+    if (Object.keys(rec).length) {
+      lines.push("", "Recomendaciones:")
+      if (rec.frecuencia_publicacion) lines.push(`- Frecuencia: ${rec.frecuencia_publicacion}`)
+      if (rec.mejores_horarios) lines.push(`- Horarios: ${rec.mejores_horarios}`)
+      if (rec.hashtags_sugeridos?.length) lines.push(`- Hashtags: ${rec.hashtags_sugeridos.join(", ")}`)
+      if (rec.formatos_prioritarios?.length)
+        lines.push(`- Formatos prioritarios: ${rec.formatos_prioritarios.join(", ")}`)
+      if (rec.metricas_clave?.length) lines.push(`- Metricas clave: ${rec.metricas_clave.join(", ")}`)
+      if (rec.consejos_magicos?.length) lines.push(`- Consejos magicos: ${rec.consejos_magicos.join("; ")}`)
+    }
+
+    return lines.join("\n").trim().normalize("NFC")
+  } catch {
+    return null
+  }
+}
+
 const extractTextFromDoc = (section?: PlanSection): { text: string; doc: any } => {
   if (!section?.content) return { text: "", doc: null }
   const doc = (section.content as any).plan_doc ?? (section.content as any).ai_doc ?? section.content
   if (typeof doc === "string") {
     return { text: doc, doc }
   }
+  const structuredText = renderStructuredPlan(doc)
   const text =
-    doc?.plan ??
     doc?.plan_text ??
+    doc?.plan ??
     doc?.text ??
+    structuredText ??
     (section.content as any).text ??
     (typeof doc === "object" ? JSON.stringify(doc, null, 2) : "")
   return { text: text ?? "", doc }

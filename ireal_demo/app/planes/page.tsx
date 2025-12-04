@@ -221,9 +221,31 @@ export default function Planes() {
                     >
                       Ver documento
                     </button>
-                    <button onClick={() => deletePlan(plan.id)} className="p-2 hover:bg-[var(--accent-600)]/10 rounded-lg transition-colors text-[var(--accent-600)]" title="Eliminar plan" aria-label="Eliminar plan">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {confirming === plan.id ? (
+                      <div className="flex items-center gap-2 text-xs">
+                        <button
+                          onClick={() => deletePlan(plan.id)}
+                          className="px-2 py-1 rounded-md bg-[var(--accent-600)] text-white hover:bg-[var(--accent-600)]/90 transition-colors"
+                        >
+                          Confirmar
+                        </button>
+                        <button
+                          onClick={() => setConfirming(null)}
+                          className="px-2 py-1 rounded-md bg-black/5 text-black hover:bg-black/10 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirming(plan.id)}
+                        className="p-2 hover:bg-[var(--accent-600)]/10 rounded-lg transition-colors text-[var(--accent-600)]"
+                        title="Eliminar plan"
+                        aria-label="Eliminar plan"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </HardCard>

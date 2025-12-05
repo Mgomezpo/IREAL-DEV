@@ -92,11 +92,6 @@ export default function Auth() {
     }
   }
 
-  const handleDemo = () => {
-    // Keep demo mode for testing without auth
-    router.push("/dashboard")
-  }
-
   return (
     <div className="min-h-screen bg-[#f5f1eb] notebook-enter flex items-center justify-center px-6">
       <div className="w-full max-w-md">
@@ -180,7 +175,7 @@ export default function Auth() {
             </button>
           </form>
 
-          <div className="mt-6 text-center space-y-3">
+          <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               {mode === "login" ? "¿No tienes una cuenta? " : "¿Ya tienes una cuenta? "}
               <button
@@ -190,10 +185,6 @@ export default function Auth() {
                 {mode === "login" ? "Crear cuenta" : "Iniciar sesión"}
               </button>
             </p>
-
-            <button onClick={handleDemo} className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
-              Entrar como demo
-            </button>
           </div>
         </div>
       </div>

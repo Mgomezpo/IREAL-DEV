@@ -73,7 +73,7 @@ export default function Auth() {
 
         console.log("[v0] Registration successful")
         setError(null)
-        alert("¡Cuenta creada! Por favor revisa tu correo para confirmar tu cuenta.")
+        alert("Cuenta creada correctamente. Ya puedes iniciar sesión.")
         setMode("login")
       }
     } catch (err: any) {

@@ -45,11 +45,11 @@ function countWords(text: string): number {
 
 function endsWithPunctuation(text: string): boolean {
   const trimmed = text.trim()
-  return /[.?!â€”]$/.test(trimmed)
+  return /[.?!¿¡"]$/.test(trimmed)
 }
 
 function hasActionVerb(text: string): boolean {
-  const actionVerbs = ["quiero", "voy a", "harÃ©", "necesito", "vamos a", "puedo", "debo", "tengo que"]
+  const actionVerbs = ["quiero", "voy a", "haré", "necesito", "vamos a", "puedo", "debo", "tengo que"]
   const lowerText = text.toLowerCase()
   return actionVerbs.some((verb) => lowerText.includes(verb))
 }
@@ -335,7 +335,7 @@ export default function IdeaEditor() {
   }
 
   const handleDelete = async () => {
-    if (!confirm("Â¿EstÃ¡s seguro de que quieres eliminar esta idea?")) {
+    if (!confirm("¿Estás seguro de que quieres eliminar esta idea?")) {
       return
     }
 
@@ -397,7 +397,7 @@ export default function IdeaEditor() {
     } else {
       // Insert at current cursor position
       const range = selection.getRangeAt(0)
-      const textNode = document.createTextNode(`\n  â€¢ ${currentNudge}\n`)
+      const textNode = document.createTextNode(`\n  - ${currentNudge}\n`)
       range.insertNode(textNode)
 
       // Update content state
@@ -457,7 +457,7 @@ export default function IdeaEditor() {
           </button>
         </div>
       </div>
-    )
+    <div className={`min-h-screen bg-[var(--surface)] ${isTransitioning ? "notebook-exit" : "notebook-enter"}`}>
   }
 
   return (
@@ -500,7 +500,7 @@ export default function IdeaEditor() {
               {!isSaving && !isError && isSaved && (
                 <div className="text-xs text-black/40">
                   Todos los cambios guardados
-                  {lastSaved && ` Â· ${Math.floor((Date.now() - lastSaved.getTime()) / 1000)}s`}
+                  {lastSaved && ` - ${Math.floor((Date.now() - lastSaved.getTime()) / 1000)}s`}
                 </div>
               )}
               {!isSaving && !isError && !isSaved && lastSaved && (
@@ -516,7 +516,7 @@ export default function IdeaEditor() {
           type="text"
           value={title}
           onChange={(e) => handleTitleChange(e.target.value)}
-          placeholder="Escribe un tÃ­tuloâ€¦"
+          placeholder="Escribe un título..."
           className="w-full bg-transparent border-none outline-none text-4xl md:text-5xl font-semibold font-display tracking-tight text-black placeholder-black/30 mb-8 focus:ring-0"
         />
 
@@ -528,7 +528,7 @@ export default function IdeaEditor() {
             onKeyDown={handleKeyDown}
             className="w-full min-h-[400px] bg-transparent border-none outline-none text-base leading-7 text-black focus:ring-0 empty:before:content-[attr(data-placeholder)] empty:before:text-black/30"
             style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: "1.75" }}
-            data-placeholder="Empieza a escribir tus ideas aquÃ­..."
+            data-placeholder="Empieza a escribir tus ideas aquí..."
             role="textbox"
             aria-multiline="true"
             suppressContentEditableWarning={true}

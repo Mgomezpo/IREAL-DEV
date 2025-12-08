@@ -457,6 +457,7 @@ export default function IdeaEditor() {
           </button>
         </div>
       </div>
+    )
   }
 
   return (

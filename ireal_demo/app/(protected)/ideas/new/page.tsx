@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import type React from "react"
 
@@ -47,7 +47,7 @@ function countWords(text: string): number {
 
 function endsWithPunctuation(text: string): boolean {
   const trimmed = text.trim()
-  return /[.?!—]$/.test(trimmed)
+  return /[.?!¿¡"]$/.test(trimmed)
 }
 
 function hasActionVerb(text: string): boolean {
@@ -66,11 +66,15 @@ export default function NewIdea() {
   const [content, setContent] = useState("")
   const [ideaId, setIdeaId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [creationError, setCreationError] = useState<string | null>(null)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [planConnectorOpen, setPlanConnectorOpen] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const titleCreatedRef = useRef(false)
+  const mountedRef = useRef(true)
+  const latestContentRef = useRef(content)
+  const latestTitleRef = useRef(title)
   const persistDraft = useCallback(
     (nextTitle: string, nextContent: string) => {
       if (!ideaPlanEnabled || typeof window === "undefined") return
@@ -97,6 +101,12 @@ export default function NewIdea() {
   const typingTimeoutRef = useRef<NodeJS.Timeout>()
   const isTypingRef = useRef(false)
   const nudgeAbortControllerRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     if (ideaPlanEnabled && typeof window !== "undefined") {
@@ -131,6 +141,14 @@ export default function NewIdea() {
       }
     }
   }, [ideaPlanEnabled])
+
+  useEffect(() => {
+    latestContentRef.current = content
+  }, [content])
+
+  useEffect(() => {
+    latestTitleRef.current = title
+  }, [title])
 
   const checkForNudge = async () => {
     if (!contentRef.current) return
@@ -219,7 +237,15 @@ export default function NewIdea() {
     }
   }
 
-  const handleNavigation = (path: string) => {
+  const handleNavigation = async (path: string) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+
+    if (ideaId) {
+      await handleSave(contentRef.current?.textContent || content, title)
+    }
+
     setIsTransitioning(true)
     setTimeout(() => {
       router.push(path)
@@ -232,7 +258,7 @@ export default function NewIdea() {
     const selection = window.getSelection()
     if (!selection || selection.rangeCount === 0) {
       // If no selection, append to the end
-      const newContent = content + (content.endsWith("\n") ? "" : "\n") + `  • ${currentNudge}\n`
+      const newContent = content + (content.endsWith("\n") ? "" : "\n") + `  - ${currentNudge}\n`
       setContent(newContent)
       if (contentRef.current) {
         contentRef.current.textContent = newContent
@@ -240,7 +266,7 @@ export default function NewIdea() {
     } else {
       // Insert at current cursor position
       const range = selection.getRangeAt(0)
-      const textNode = document.createTextNode(`\n  • ${currentNudge}\n`)
+      const textNode = document.createTextNode(`\n  - ${currentNudge}\n`)
       range.insertNode(textNode)
 
       // Update content state
@@ -265,6 +291,7 @@ export default function NewIdea() {
   const handleTitleChange = async (newTitle: string) => {
     setTitle(newTitle)
     persistDraft(newTitle, content)
+    setCreationError(null)
 
     // Create idea automatically when user types a title
     if (!titleCreatedRef.current && newTitle.trim() && !ideaId) {
@@ -280,11 +307,23 @@ export default function NewIdea() {
           const data = await response.json()
           setIdeaId(data.id)
           setLastSaved(new Date())
+          setCreationError(null)
           console.log("[v0] Idea auto-created with ID:", data.id)
+        } else {
+          const message =
+            response.status === 401 || response.status === 403
+              ? "Tu sesión expiró. Vuelve a iniciar sesión."
+              : "No se pudo crear la idea. Intenta de nuevo."
+          setCreationError(message)
+          titleCreatedRef.current = false
+          if (response.status === 401 || response.status === 403) {
+            router.push("/auth")
+          }
         }
       } catch (error) {
         console.error("[v0] Error creating idea:", error)
         titleCreatedRef.current = false
+        setCreationError("No se pudo crear la idea. Intenta de nuevo.")
       }
     } else if (ideaId && newTitle.trim()) {
       // Update title if idea already exists
@@ -336,31 +375,44 @@ export default function NewIdea() {
     }, 1200)
   }
 
-  const handleSave = async (contentToSave: string, titleToSave: string) => {
-    if (!ideaId) return
+  const handleSave = useCallback(
+    async (contentToSave: string, titleToSave: string) => {
+      if (!ideaId) return false
 
-    setSaving(true)
+      if (mountedRef.current) {
+        setSaving(true)
+      }
 
-    try {
-      const response = await fetch(`/api/ideas/${ideaId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: titleToSave, content: contentToSave }),
-      })
+      try {
+        const response = await fetch(`/api/ideas/${ideaId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: titleToSave, content: contentToSave }),
+        })
 
-      if (response.ok) {
-        setLastSaved(new Date())
+        if (!response.ok) {
+          return false
+        }
+
+        if (mountedRef.current) {
+          setLastSaved(new Date())
+        }
         console.log("[v0] Idea auto-saved successfully")
         if (contentToSave.trim().length > 0) {
           clearDraft()
         }
+        return true
+      } catch (error) {
+        console.error("[v0] Error saving idea:", error)
+        return false
+      } finally {
+        if (mountedRef.current) {
+          setSaving(false)
+        }
       }
-    } catch (error) {
-      console.error("[v0] Error saving idea:", error)
-    } finally {
-      setSaving(false)
-    }
-  }
+    },
+    [clearDraft, ideaId],
+  )
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter") {
@@ -380,6 +432,14 @@ export default function NewIdea() {
     const newContent = e.currentTarget.textContent || ""
     handleContentChange(newContent)
   }
+
+  useEffect(() => {
+    return () => {
+      if (ideaId && (latestTitleRef.current.trim() || latestContentRef.current.trim())) {
+        void handleSave(latestContentRef.current, latestTitleRef.current)
+      }
+    }
+  }, [handleSave, ideaId])
 
   const openAttachToPlanModal = () => {
     if (!ideaPlanEnabled) return
@@ -401,6 +461,7 @@ export default function NewIdea() {
           </button>
 
           <div className="text-right">
+            {creationError && <div className="text-xs text-red-600">{creationError}</div>}
             {saving && <div className="text-xs text-[var(--accent-600)]">Guardando...</div>}
             {!saving && lastSaved && (
               <div className="text-xs text-black/40">

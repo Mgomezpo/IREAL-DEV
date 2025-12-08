@@ -457,11 +457,10 @@ export default function IdeaEditor() {
           </button>
         </div>
       </div>
-    <div className={`min-h-screen bg-[var(--surface)] ${isTransitioning ? "notebook-exit" : "notebook-enter"}`}>
   }
 
   return (
-    <div className={`min-h-screen bg-[var(--surface)} ${isTransitioning ? "notebook-exit" : "notebook-enter"}`}>
+    <div className={`min-h-screen bg-[var(--surface)] ${isTransitioning ? "notebook-exit" : "notebook-enter"}`}>
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
           {isSaving && "Guardando cambios"}

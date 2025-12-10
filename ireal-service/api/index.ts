@@ -3,7 +3,14 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import express, { json, Request, RequestHandler, Response, urlencoded } from 'express';
+import express, {
+  json,
+  NextFunction,
+  Request,
+  RequestHandler,
+  Response,
+  urlencoded,
+} from 'express';
 import { AppModule } from '../src/app.module';
 import { ApiExceptionFilter } from '../src/common/filters/api-exception.filter';
 import { correlationMiddleware } from '../src/common/observability/correlation.middleware';
@@ -62,5 +69,12 @@ export default async function handler(req: Request, res: Response) {
     cachedHandler = await bootstrapServer();
   }
 
-  return cachedHandler(req, res);
+  return new Promise<void>((resolve, reject) => {
+    cachedHandler?.(req, res, (err?: unknown) => {
+      if (err) {
+        return reject(err);
+      }
+      return resolve();
+    });
+  });
 }

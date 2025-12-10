@@ -3,8 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import express, { json, Request, Response, urlencoded } from 'express';
-import serverless from 'serverless-http';
+import express, { json, Request, RequestHandler, Response, urlencoded } from 'express';
 import { AppModule } from '../src/app.module';
 import { ApiExceptionFilter } from '../src/common/filters/api-exception.filter';
 import { correlationMiddleware } from '../src/common/observability/correlation.middleware';
@@ -13,9 +12,9 @@ import { RequestLoggingInterceptor } from '../src/common/observability/request-l
 import { createValidationPipe } from '../src/common/pipes/api-validation.pipe';
 import { getAppVersion } from '../src/common/version.util';
 
-let cachedServer: serverless.Handler | undefined;
+let cachedHandler: RequestHandler | undefined;
 
-async function bootstrapServer() {
+async function bootstrapServer(): Promise<RequestHandler> {
   const expressInstance = express();
   const adapter = new ExpressAdapter(expressInstance);
 
@@ -54,13 +53,14 @@ async function bootstrapServer() {
 
   Logger.log(`ireal-service (serverless) initialised on port ${port}`, 'Bootstrap');
 
-  return serverless(expressInstance);
+  // ExpressAdapter wraps the underlying express instance; we reuse it as a handler.
+  return app.getHttpAdapter().getInstance();
 }
 
 export default async function handler(req: Request, res: Response) {
-  if (!cachedServer) {
-    cachedServer = await bootstrapServer();
+  if (!cachedHandler) {
+    cachedHandler = await bootstrapServer();
   }
 
-  return cachedServer(req, res);
+  return cachedHandler(req, res);
 }

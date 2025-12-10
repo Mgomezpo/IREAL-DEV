@@ -24,6 +24,9 @@ let cachedHandler: RequestHandler | undefined;
 async function bootstrapServer(): Promise<RequestHandler> {
   const expressInstance = express();
   const adapter = new ExpressAdapter(expressInstance);
+  // Avoid accessing deprecated app.router during init checks (Express 4+ lambda env).
+  // Vercel's runtime warns/crashes if app.router is read; override the check.
+  (adapter as any).isMiddlewareApplied = () => false;
 
   const app = await NestFactory.create(AppModule, adapter, {
     bufferLogs: true,
@@ -69,12 +72,19 @@ export default async function handler(req: Request, res: Response) {
     cachedHandler = await bootstrapServer();
   }
 
-  return new Promise<void>((resolve, reject) => {
-    cachedHandler?.(req, res, (err?: unknown) => {
+  try {
+    return cachedHandler?.(req, res, (err?: unknown) => {
       if (err) {
-        return reject(err);
+        Logger.error('Request handler error', err);
+        if (!res.headersSent) {
+          res.status(500).send('Internal Server Error');
+        }
       }
-      return resolve();
     });
-  });
+  } catch (err) {
+    Logger.error('Request handler threw', err);
+    if (!res.headersSent) {
+      res.status(500).send('Internal Server Error');
+    }
+  }
 }

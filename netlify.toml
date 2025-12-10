@@ -1,0 +1,8 @@
+[build]
+  base = "ireal_demo"
+  command = "npm run build"
+  publish = ".next"
+  functions = ".netlify/functions-internal"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

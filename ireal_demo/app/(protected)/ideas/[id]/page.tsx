@@ -296,6 +296,13 @@ export default function IdeaEditor() {
     void fetchIdea({ showLoading: true })
   }, [fetchIdea])
 
+  useEffect(() => {
+    if (loading) return
+    if (contentRef.current) {
+      contentRef.current.textContent = content
+    }
+  }, [loading, content])
+
   const handleNavigation = async (path: string) => {
     await flush()
     setIsTransitioning(true)

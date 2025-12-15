@@ -5,4 +5,5 @@
 - Interaction patterns: short plan-chat prompts; focus-visible rings; accessible labels; responsive on common breakpoints
 - Empty states and loading: skeletons for ideas/plans; gentle transitions; clear error toasts
 - Streaming AI (calendar): show in-progress state (spinner/progress banner), append entries as they stream, allow cancel, surface final toast on completion
-
+- Calendar UI: Buffer-like grid with drag/drop and bulk shift; tile states (ready, missing media, token expired, failed retry, published)
+- Modal: IG-style post sheet with AI-prefilled caption/hashtags/cover/time; channel-specific tweaks in one modal; surface readiness warnings and retry/needs-attention banners

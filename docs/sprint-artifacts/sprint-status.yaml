@@ -1,0 +1,28 @@
+# Sprint Status - Calendar Autoposting & Unified Modal
+
+generated: "2025-12-15"
+project: "IREAL-DEV"
+phase: "Implementation"
+notes: "Focus on Epic 4 autoposting: accounts/readiness, publishing pipeline, calendar UI + modal"
+
+stories:
+  - id: "epic-4.story-4.1"
+    title: "Channel Accounts & Readiness States"
+    status: "pending"
+    owner: "pm"
+    path: "docs/stories/epic-4-calendar-autoposting.story-4.1-channel-accounts-and-readiness.md"
+  - id: "epic-4.story-4.2"
+    title: "Publishing Jobs, Preflight, and Retries"
+    status: "pending"
+    owner: "pm"
+    path: "docs/stories/epic-4-calendar-autoposting.story-4.2-publishing-jobs-preflight-and-retries.md"
+  - id: "epic-4.story-4.3"
+    title: "Calendar UX and Unified Modal"
+    status: "pending"
+    owner: "pm"
+    path: "docs/stories/epic-4-calendar-autoposting.story-4.3-calendar-ux-and-unified-modal.md"
+
+risks:
+  - "Platform API limits/ban: mitigate with official SDKs, rate limiting, backoff."
+  - "Publish reliability: preflight + retries + needs-attention surfacing."
+  - "Token expiry: refresh and show readiness state."
